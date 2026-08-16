@@ -6,7 +6,7 @@ description: Manage Shadow Mind background shadow agents (status, pause, resume,
 
 管理 Shadow Mind 后台影子智能。用法: /shadow status|pause|resume|now [id]|list|create|delete|config get|set
 
-说明: now [id] 是手动强制触发——无论 heartbeat 概率是多少都会在后台立即审阅指定（缺省全部）Shadow，报告在随后的回合送达，适合"我希望这次专门审一下"的场景。触发一次后自动失效；若同会话已有影子在跑则排队到批结束后触发。
+说明: now [id] 是显式强制触发——立即在后台审阅指定（缺省全部）Shadow，报告在随后的回合送达，触发一次后自动失效；若同会话已有影子在跑则排队到批结束后触发。影子只在 `now`（或手动写入 force 文件）时运行，没有轮询/抽签。
 
 先读取 C:/Users/Administrator/.claude/shadow-mind.json 中的 "pluginDir" 字段获得插件绝对路径
 (该文件由 install.mjs 在插件安装时写入)，然后执行:

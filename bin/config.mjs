@@ -6,18 +6,14 @@ import { dirname } from "node:path";
 import { configPath } from "./paths.mjs";
 
 export const DEFAULT_CONFIG = {
-  heartbeat_probability: 1 / 3,
-  max_parallel_shadows: 2,
   default_shadow_timeout_seconds: 300,
   headless_drain_timeout_seconds: 120, // legacy Pi field, not implemented
   result_batch_window_ms: 400, // legacy Pi field, not implemented
   default_shadow_model: null,
   default_thinking_level: "medium",
-  random_seed: null,
   max_report_chars: 4000,
   max_trajectory_chars: null, // null = no truncation, feed the full window
   use_safe_mode: true,
-  daily_budget_usd: null,
   report_delivery: "context", // "context" | "block" (experimental)
   shadow_persistence: "reuse", // "ephemeral" | "reuse"
   max_resume_turns: 20, // reuse mode: open a fresh session after this many turns
@@ -35,12 +31,6 @@ function validate(raw) {
 
   const result = { ...DEFAULT_CONFIG };
 
-  const range = (name, min, max, fallback) => {
-    const input = value[name];
-    if (input === undefined) return fallback;
-    if (!isFiniteNumber(input) || input < min || input > max) throw new Error(`${name} must be between ${min} and ${max}`);
-    return input;
-  };
   const positive = (name, fallback) => {
     const input = value[name];
     if (input === undefined) return fallback;
@@ -59,8 +49,6 @@ function validate(raw) {
     return input;
   };
 
-  result.heartbeat_probability = range("heartbeat_probability", 0, 1, DEFAULT_CONFIG.heartbeat_probability);
-  result.max_parallel_shadows = positiveInt("max_parallel_shadows", DEFAULT_CONFIG.max_parallel_shadows);
   result.default_shadow_timeout_seconds = positive("default_shadow_timeout_seconds", DEFAULT_CONFIG.default_shadow_timeout_seconds);
   result.headless_drain_timeout_seconds = positive("headless_drain_timeout_seconds", DEFAULT_CONFIG.headless_drain_timeout_seconds);
   result.result_batch_window_ms = nonNegativeInt("result_batch_window_ms", DEFAULT_CONFIG.result_batch_window_ms);
@@ -70,20 +58,6 @@ function validate(raw) {
     if (input === undefined || input === null) return null; // null = feed the full window, no truncation
     if (!isFiniteNumber(input) || !Number.isInteger(input) || input < 0) {
       throw new Error("max_trajectory_chars must be a non-negative integer or null");
-    }
-    return input;
-  })();
-  result.daily_budget_usd = (() => {
-    const input = value.daily_budget_usd;
-    if (input === undefined || input === null) return null;
-    if (!isFiniteNumber(input) || input < 0) throw new Error("daily_budget_usd must be non-negative or null");
-    return input;
-  })();
-  result.random_seed = (() => {
-    const input = value.random_seed;
-    if (input === undefined || input === null) return null;
-    if (!isFiniteNumber(input) || !Number.isInteger(input) || input < 0 || input > 0xffff_ffff) {
-      throw new Error("random_seed must be an integer between 0 and 4294967295");
     }
     return input;
   })();

@@ -7,7 +7,6 @@ id: code-reviewer
 name: Code Reviewer
 enabled: true
 debug: false
-activation_probability: 0.3
 active_for_models: ["*"]
 tools: [read, grep]
 ---
@@ -20,7 +19,6 @@ test("parses valid shadow definition", () => {
   const shadow = parseShadowMarkdown(VALID, "C:/x/code-reviewer.md");
   assert.equal(shadow.id, "code-reviewer");
   assert.equal(shadow.name, "Code Reviewer");
-  assert.equal(shadow.activationProbability, 0.3);
   assert.deepEqual(shadow.activeForModels, ["*"]);
   assert.deepEqual(shadow.tools, ["read", "grep"]);
   assert.ok(shadow.prompt.includes("Review the code."));
@@ -33,23 +31,9 @@ test("defaults from filename id when id missing", () => {
   assert.equal(shadow.name, "X");
 });
 
-test("defaults enabled=true and probability 1", () => {
+test("defaults enabled=true", () => {
   const shadow = parseShadowMarkdown("---\nid: a\n---\nbody", "C:/x/a.md");
   assert.equal(shadow.enabled, true);
-  assert.equal(shadow.activationProbability, 1);
-});
-
-test("default probability 1 means heartbeat hit always activates", async () => {
-  const { decideHeartbeat } = await import("../bin/scheduler.mjs");
-  const out = decideHeartbeat({
-    heartbeatProbability: 1,
-    availableSlots: 1,
-    shadows: [parseShadowMarkdown("---\nid: a\n---\nbody", "C:/x/a.md")],
-    activeShadowIds: new Set(),
-    mainModelId: "m",
-    random: () => 0.999, // high roll, still activates with probability 1
-  });
-  assert.equal(out.activated.length, 1);
 });
 
 test("throws on missing frontmatter", () => {
@@ -80,10 +64,6 @@ test("throws on invalid id pattern", () => {
   assert.throws(() => parseShadowMarkdown("---\nid: Bad Id!\n---\nbody", "C:/x/a.md"), /id must match/);
 });
 
-test("throws on bad probability", () => {
-  assert.throws(() => parseShadowMarkdown("---\nid: a\nactivation_probability: 7\n---\nbody", "C:/x/a.md"), /between 0 and 1/);
-});
-
 test("serialize round-trips", async () => {
   const { ShadowRegistry } = await import("../bin/registry.mjs");
   const registry = new ShadowRegistry();
@@ -92,7 +72,6 @@ test("serialize round-trips", async () => {
   const again = parseShadowMarkdown(source, "C:/x/code-reviewer.md");
   assert.equal(again.id, parsed.id);
   assert.equal(again.name, parsed.name);
-  assert.equal(again.activationProbability, parsed.activationProbability);
   assert.deepEqual(again.tools, parsed.tools);
   assert.ok(again.prompt.includes("unsafe patterns"));
 });

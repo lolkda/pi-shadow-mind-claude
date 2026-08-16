@@ -3,7 +3,6 @@ id: code-reviewer
 name: Code Reviewer
 enabled: true
 debug: false
-activation_probability: 1
 active_for_models: ["*"]
 tools: [read, grep, find, ls]
 ---

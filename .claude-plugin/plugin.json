@@ -1,6 +1,6 @@
 {
   "name": "shadow-mind",
-  "description": "Background shadow agents (Shadow Minds) for Claude Code: after every turn they heartbeat-review the main agent's trajectory and report findings back via Stop-hook injection.",
+  "description": "Background shadow agents (Shadow Minds) for Claude Code: on-demand (/shadow now) they review the main agent's trajectory and report findings back via Stop-hook injection.",
   "version": "0.2.0",
   "author": {
     "name": "lolkda"

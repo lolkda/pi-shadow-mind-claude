@@ -1,14 +1,10 @@
 {
-  "heartbeat_probability": 0.3333,
-  "max_parallel_shadows": 2,
   "default_shadow_timeout_seconds": 300,
   "default_shadow_model": null,
   "default_thinking_level": "medium",
-  "random_seed": null,
   "max_report_chars": 4000,
   "max_trajectory_chars": null,
   "use_safe_mode": true,
-  "daily_budget_usd": null,
   "report_delivery": "context",
   "shadow_persistence": "reuse",
   "max_resume_turns": 20

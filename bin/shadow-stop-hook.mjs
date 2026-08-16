@@ -1,6 +1,7 @@
-// Stop hook: heartbeat → activate shadows → hand the batch to a detached
-// background collector → later Stops drain finished reports via
-// additionalContext. The hook itself never waits on shadows.
+// Stop hook: explicit activation only — a "/shadow now [id]" force file opts a
+// batch of shadows into a detached background collector; later Stops drain
+// finished reports via additionalContext. The hook itself never waits on
+// shadows and never activates them on its own.
 // Contract: always exit 0; stdout is either an empty string or exactly one JSON object.
 
 import { spawn } from "node:child_process";
@@ -11,7 +12,7 @@ import { readStdinJson, logDebug } from "./util.mjs";
 import { ConfigStore } from "./config.mjs";
 import { ShadowRegistry } from "./registry.mjs";
 import { StateStore } from "./state.mjs";
-import { decideHeartbeat, matchesModel, createRandom, normalizeModelId } from "./scheduler.mjs";
+import { matchesModel, normalizeModelId } from "./scheduler.mjs";
 import { resolveMainModelId } from "./modelid.mjs";
 import { serializeTrajectory } from "./trajectory.mjs";
 import { SHADOW_PROTOCOL, mapToolNames } from "./runner.mjs";
@@ -99,10 +100,6 @@ async function main(input) {
       log("paused; skip");
       return null;
     }
-    if (config.daily_budget_usd !== null && state.state.dailyBudgetSpentUsd >= config.daily_budget_usd) {
-      log("daily budget exhausted; skip");
-      return null;
-    }
 
     // 2) One batch at a time: while shadows still run for this session, defer.
     // An explicit /shadow now force file is left untouched so it fires once the
@@ -115,32 +112,21 @@ async function main(input) {
     const mainModelId = normalizeModelId(await resolveMainModelId() ?? "");
     const activeIds = new Set((sess.activeRuns ?? []).map((run) => run.shadowId));
 
-    // Manual trigger via "/shadow now [id]": a force file makes this heartbeat
-    // deterministic (bypasses heartbeat_probability and activation_probability).
+    // Activation is explicit-only: "/shadow now [id]" writes a one-shot force
+    // file; there is no automatic draw. Consume the trigger immediately. If
+    // this hook gets interrupted (e.g. a new user prompt aborts the run), a
+    // stale force file must not silently activate shadows on a later Stop.
     const force = await readForceTrigger();
-    // Consume the one-shot trigger immediately. If this hook gets interrupted
-    // (e.g. a new user prompt aborts the run), a stale force file must not
-    // silently force-activate shadows on a later Stop.
     if (force) await clearForceTrigger();
-    const decision = force
-      ? null
-      : decideHeartbeat({
-          heartbeatProbability: config.heartbeat_probability,
-          availableSlots: Math.max(0, config.max_parallel_shadows - activeIds.size),
-          shadows: snapshot.shadows,
-          activeShadowIds: activeIds,
-          mainModelId,
-          random: createRandom(config.random_seed ?? undefined),
-        });
-    const activated = force
-      ? snapshot.shadows.filter((shadow) => shadow.enabled
+    const activated = !force
+      ? []
+      : snapshot.shadows.filter((shadow) => shadow.enabled
           && matchesModel(shadow, mainModelId)
           && !activeIds.has(shadow.id)
-          && (force.id === undefined || force.id === "*" || force.id === shadow.id))
-      : decision.activated.map(({ shadow }) => shadow);
+          && (force.id === undefined || force.id === "*" || force.id === shadow.id));
     log(force
       ? `FORCED trigger activated=${activated.map(({ id }) => id).join(",") || "none"}`
-      : `heartbeat roll=${decision.heartbeatRoll.toFixed(4)} activated=${activated.map(({ id }) => id).join(",") || "none"}`);
+      : "no manual trigger; skip");
 
     if (!activated.length) {
       return null;

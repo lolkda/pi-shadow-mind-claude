@@ -3,7 +3,6 @@ id: memory-reviewer
 name: Persistent Code Reviewer
 enabled: true
 debug: false
-activation_probability: 1
 active_for_models: ["*"]
 persistence: reuse
 tools: [read, grep, find, ls]

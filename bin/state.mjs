@@ -10,13 +10,11 @@ import { isPidAlive, killProcessTree } from "./util.mjs";
 const DEFAULT_STATE = () => ({
   epoch: 0,
   paused: false,
-  sessions: {}, // sessionId -> { epoch, activeRuns: [], delivered: [], lastHeartbeatAt }
-  dailyBudgetSpentUsd: 0,
-  budgetFrozenAt: null, // ISO date when daily budget freeze engaged
+  sessions: {}, // sessionId -> { epoch, activeRuns: [], delivered }
 });
 
 function emptySession() {
-  return { epoch: 0, activeRuns: [], delivered: [], lastHeartbeatAt: null, claudeSessions: {} };
+  return { epoch: 0, activeRuns: [], delivered: [], claudeSessions: {} };
 }
 
 export class StateStore {

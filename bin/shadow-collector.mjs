@@ -44,11 +44,6 @@ async function main() {
     // The run finished (or was killed): remove it from the active set.
     sess.activeRuns = (sess.activeRuns ?? []).filter((run) => run.pid !== result.pid);
 
-    if (result.reason !== "error" && result.reason !== "aborted") {
-      // Approximate cost accounting: a shadow run is at least one API call.
-      state.state.dailyBudgetSpentUsd = (state.state.dailyBudgetSpentUsd ?? 0) + 0.05;
-    }
-
     // Persist the shadow's Claude session for the next activation (reuse mode).
     if (spec.persistSession && result.sessionId) {
       const prior = sess.claudeSessions[spec.id];

@@ -28,7 +28,6 @@ function parseShadowMarkdown(source, filePath) {
     name: (value.name ?? id).toString().trim() || id,
     enabled: value.enabled === undefined ? true : Boolean(value.enabled),
     debug: value.debug === undefined ? false : Boolean(value.debug),
-    activationProbability: probability(value.activation_probability, 1),
     activeForModels: stringArray(value.active_for_models, ["*"]),
     runWithModel: optionalString(value.run_with_model),
     thinkingLevel: optionalString(value.thinking_level),
@@ -38,12 +37,6 @@ function parseShadowMarkdown(source, filePath) {
     prompt,
     filePath,
   };
-}
-
-function probability(value, fallback) {
-  if (value === undefined) return fallback;
-  if (!isFiniteNumber(value) || value < 0 || value > 1) throw new Error("activation_probability must be between 0 and 1");
-  return value;
 }
 
 function optionalPositive(value) {
@@ -131,7 +124,6 @@ export class ShadowRegistry {
       name: shadow.name,
       enabled: shadow.enabled,
       debug: shadow.debug,
-      activation_probability: shadow.activationProbability,
       active_for_models: shadow.activeForModels,
       ...(shadow.runWithModel !== undefined ? { run_with_model: shadow.runWithModel } : {}),
       ...(shadow.thinkingLevel !== undefined ? { thinking_level: shadow.thinkingLevel } : {}),

@@ -16,7 +16,7 @@ async function readState() {
   try {
     return JSON.parse(await readFile(statePath, "utf8"));
   } catch {
-    return { epoch: 0, paused: false, sessions: {}, dailyBudgetSpentUsd: 0 };
+    return { epoch: 0, paused: false, sessions: {} };
   }
 }
 
@@ -34,8 +34,8 @@ async function cmdStatus() {
   const configLines = [
     "Shadow Mind status",
     `config: ${error ?? "ok"}`,
-    `heartbeat ${config.heartbeat_probability} · max parallel ${config.max_parallel_shadows} · timeout ${config.default_shadow_timeout_seconds}s · effort ${config.default_thinking_level}`,
-    `safe-mode ${config.use_safe_mode} · report ${config.report_delivery} · daily budget ${config.daily_budget_usd ?? "unset"} (spent ${state.dailyBudgetSpentUsd.toFixed(3)})`,
+    `timeout ${config.default_shadow_timeout_seconds}s · effort ${config.default_thinking_level}`,
+    `safe-mode ${config.use_safe_mode} · report ${config.report_delivery}`,
     `definitions: ${snapshot.shadows.length} valid · ${snapshot.diagnostics.length} invalid`,
     ...snapshot.diagnostics.map((d) => `  ! ${d.filePath}: ${d.message}`),
   ];
@@ -47,7 +47,7 @@ async function cmdStatus() {
   });
   const header = state.paused ? "paused" : "active";
   return [`🐙 Shadow Mind · ${header}`, ...configLines, ...(sessionLines.length ? ["", "sessions:", ...sessionLines] : []), "", "Commands: /shadow pause | resume | status | hide", "", "Shadows:",
-    ...(snapshot.shadows.length ? snapshot.shadows.map((s) => `  ${s.enabled ? "enabled" : "disabled"} ${s.id} (${s.name}) p=${s.activationProbability} models=${s.activeForModels.join(",")} tools=${s.tools.join(",") || "default"} file=${s.filePath}`) : ["  (none)"]),
+    ...(snapshot.shadows.length ? snapshot.shadows.map((s) => `  ${s.enabled ? "enabled" : "disabled"} ${s.id} (${s.name}) models=${s.activeForModels.join(",")} tools=${s.tools.join(",") || "default"} file=${s.filePath}`) : ["  (none)"]),
   ].join("\n");
 }
 
@@ -81,7 +81,7 @@ async function cmdShadow(action, id, extra) {
     return snapshot.diagnostics.length
       ? `${snapshot.diagnostics.map((d) => `! ${d.filePath}: ${d.message}`).join("\n")}\n`
       : snapshot.shadows.length
-        ? snapshot.shadows.map((s) => `${s.enabled ? "enabled" : "disabled"} ${s.id} (${s.name}) p=${s.activationProbability} models=${s.activeForModels.join(",")} tools=${s.tools.join(",") || "default"} file=${s.filePath}`).join("\n")
+        ? snapshot.shadows.map((s) => `${s.enabled ? "enabled" : "disabled"} ${s.id} (${s.name}) models=${s.activeForModels.join(",")} tools=${s.tools.join(",") || "default"} file=${s.filePath}`).join("\n")
         : "(no shadow definitions)";
   }
   if (action === "create") {
@@ -89,7 +89,7 @@ async function cmdShadow(action, id, extra) {
     const filePath = join(shadowDir, `${id}.md`);
     const name = extra ?? id;
     const prompt = "Describe this Shadow Mind's responsibility.";
-    const source = registry.serialize({ id, name, enabled: true, debug: false, activationProbability: 1, activeForModels: ["*"], runWithModel: undefined, thinkingLevel: undefined, timeoutSeconds: undefined, tools: [], prompt });
+    const source = registry.serialize({ id, name, enabled: true, debug: false, activeForModels: ["*"], runWithModel: undefined, thinkingLevel: undefined, timeoutSeconds: undefined, tools: [], prompt });
     if (snapshot.shadows.some((s) => s.id === id)) throw new Error(`shadow already exists: ${id}`);
     const parsed = parseShadowMarkdown(source, filePath);
     await writeFile(filePath, source, { encoding: "utf8", flag: "wx" });
