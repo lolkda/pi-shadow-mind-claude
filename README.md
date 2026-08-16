@@ -4,21 +4,31 @@
 
 > ⚠️ **成本警告**：每个影子会话都重建独立上下文（约 2–4 万 input tokens）。本机代理实测每次激活成本约 **$0.06–0.25**。默认配置（heartbeat 1/3、激活概率 0.3、并发 2）下会频繁触发，请按需调低 `heartbeat_probability` 或设置 `daily_budget_usd` 封顶。影子默认 `effort=medium`，比主会话的 max 便宜很多。
 
-## 安装 / 启用
+## 安装 / 启用（克隆即用）
 
-### 方式 A：临时试用（推荐先做这个）
-
-```powershell
-claude --plugin-dir "D:\Personal\Desktop\新建文件夹 (6)\pi-shadow-mind-claude" -p "..."
-```
-
-### 方式 B：全局启用
+克隆后只需一条命令，即可在本机全局启用（hooks 自动加载、默认 Shadow 自动播种）：
 
 ```powershell
-node "D:\Personal\Desktop\新建文件夹 (6)\pi-shadow-mind-claude\bin\install.mjs"
+git clone https://github.com/lolkda/pi-shadow-mind-claude
+cd pi-shadow-mind-claude
+node bin/install.mjs
+# 重启 Claude Code（或 /reload-plugins）后自动生效
 ```
 
-`install.mjs` 会把 `{pluginDir, nodePath}` 写入 `C:\Users\Administrator\.claude\shadow-mind.json`，供 `/shadow` 斜杠命令解析插件路径。随后在 `~/.claude/settings.json` 的 `enabledPlugins` 或 plugins 中启用（或通过 `/plugin` 安装本地目录）。hooks（Stop / UserPromptSubmit / SessionEnd）随插件启用后自动生效。
+`install.mjs` 自动完成：
+1. 从 `hooks/hooks.template.json` 生成 `hooks/hooks.json`（写入本机 node 与插件绝对路径，该文件不入库）
+2. 初始化 `~/.claude/shadow-minds/`（默认 config.json）
+3. 播种内置 Shadow 示例：`code-reviewer` + `architecture-review`（不会覆盖你已有的定义）
+4. 把插件复制到 `~/.claude/skills/pi-shadow-mind/`，作为 `pi-shadow-mind@skills-dir` 全局自动加载
+5. 写 `~/.claude/shadow-mind.json` 标记，供 `/shadow` 命令解析插件路径
+
+验证：`/shadow status` 应显示 `definitions: 2 valid`。
+
+### 方式 B：临时试用（不全局安装）
+
+```powershell
+claude --plugin-dir <克隆路径> -p "..."
+```
 
 ## Shadow Mind 定义
 
