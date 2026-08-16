@@ -51,3 +51,21 @@ test("normalizes to defaults for legacy fields", () => {
 test("DEFAULT_CONFIG validates cleanly", () => {
   assert.doesNotThrow(() => validateConfig(DEFAULT_CONFIG));
 });
+test("auto_review defaults to off with mainstream extensions", () => {
+  const config = validateConfig({});
+  assert.equal(config.auto_review_enabled, false);
+  assert.ok(Array.isArray(config.auto_review_exts));
+  assert.ok(config.auto_review_exts.includes("py"));
+  assert.ok(config.auto_review_exts.includes("java"));
+});
+
+test("auto_review accepts override and normalizes extensions", () => {
+  const config = validateConfig({ auto_review_enabled: true, auto_review_exts: [".Py", "ts"] });
+  assert.equal(config.auto_review_enabled, true);
+  assert.deepEqual(config.auto_review_exts, ["py", "ts"]);
+});
+
+test("auto_review rejects non-array or invalid extensions", () => {
+  assert.throws(() => validateConfig({ auto_review_exts: "py" }), /array of extension/);
+  assert.throws(() => validateConfig({ auto_review_exts: ["py!"] }), /array of extension/);
+});

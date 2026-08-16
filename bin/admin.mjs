@@ -73,6 +73,7 @@ async function cmdStatus() {
     `config: ${error ?? "ok"}`,
     `timeout ${config.default_shadow_timeout_seconds}s · effort ${config.default_thinking_level}`,
     `safe-mode ${config.use_safe_mode} · report ${config.report_delivery}`,
+    `auto review: ${config.auto_review_enabled ? `on (${config.auto_review_exts.join(", ")})` : "off"}`,
     `definitions: ${snapshot.shadows.length} valid · ${snapshot.diagnostics.length} invalid`,
     ...snapshot.diagnostics.map((d) => `  ! ${d.filePath}: ${d.message}`),
   ];

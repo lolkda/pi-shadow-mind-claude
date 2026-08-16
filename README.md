@@ -86,12 +86,14 @@ tools: [read, grep, find, ls]
 | `report_delivery` | "context" | `"context"`=additionalContext 注入；`"block"`=decision block（实验） |
 | `shadow_persistence` | "reuse" | Shadow 会话模式全局默认：复用有记忆（单个定义写 `persistence: ephemeral` 可覆盖为一次性） |
 | `max_resume_turns` | 20 | reuse 模式：达到该轮数后自动开新会话 |
+| `auto_review_enabled` | false | 开关：开启后，本回合**动过** `auto_review_exts` 中后缀的文件（写操作或命令中出现 x.py 之类）即自动激活全部影子审阅（等价自动 `/shadow now`）；只读浏览不触发 |
+| `auto_review_exts` | 主流语言清单 | 触发后缀列表（`["py","ts","sh",...]`，带点/不带点等价、大小写不敏感）；`config set auto_review_exts ["py"]` 自定义 |
 
 ## 工作原理（后台模式）
 
 1. 主 Agent 每次响应结束 → `Stop` hook 触发。
 2. hook 读 `transcript_path` 解析净化轨迹（剥 thinking、工具结果摘要化、过滤子任务 sidechain、**窗口化到最近一条真实用户指令之后**，`/shadow` 这类斜杠命令不构成窗口边界），序列化为 `<main-agent-trajectory>`。
-3. `/shadow now [id]` 写一次性 force 文件 → `Stop` hook 读取后把整批任务交给**独立的后台 collector 进程**（`shadow-collector.mjs`），Stop hook 立即返回，主会话无感。
+3. 触发只有两种：`/shadow now [id]` 写一次性 force 文件；或开启 `auto_review_enabled` 后本回合动过匹配后缀文件（如改 auth.py、bash -c "python train.py"）自动合成等价触发。命中后 `Stop` hook 把整批任务交给**独立的后台 collector 进程**（`shadow-collector.mjs`），Stop hook 立即返回，主会话无感。
 4. collector 并行 spawn `claude -p --safe-mode --permission-mode plan` headless 子会话（stdin 注入"轨迹 + 协议 + 职责"，各自独立计时 `timeout_seconds`）。
 5. 影子判定相关性：无关输出 `NOT_RELEVANT` 静默退出；相关则只读检查后输出报告。collector 把报告 **append 到会话独立的报告队列**（`~/.claude/shadow-minds/reports/<sessionId>.jsonl`），不碰 state.json（保持单写者，防陈旧快照覆盖）。
 6. **同一会话同时只跑一组影子**：批未结束前，`/shadow now` 排队（force 文件保留，批结束后下一个 Stop 生效，显式请求不丢）。

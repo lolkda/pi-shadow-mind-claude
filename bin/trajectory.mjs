@@ -78,19 +78,7 @@ export async function serializeTrajectory(transcriptPath, options = {}) {
     // Transcript unreadable is treated as an empty trajectory, not an error.
   }
 
-  // Window anchor: the last real user instruction. Computed on the structured
-  // rows (not on flattened text) so the window semantics stay decoupled from
-  // the serialization format, and only this plugin's own slash commands are
-  // exempt - a "/shadow now" must not hide the code written before it.
-  let windowRow = -1;
-  for (let index = rows.length - 1; index >= 0; index -= 1) {
-    const row = rows[index];
-    if (!row || row.isSidechain === true || row.type !== "user") continue;
-    const text = extractText(row.message?.content ?? "").trim();
-    if (!text) continue; // tool_result-only user row: not a user instruction
-    windowRow = index;
-    if (!isCommandText(text)) break; // last real instruction found
-  }
+  const windowRow = computeWindowStart(rows);
 
   // Pass 2: emit sanitized lines (only from the window anchor onward).
   const lines = [];
@@ -163,6 +151,24 @@ export async function serializeTrajectory(transcriptPath, options = {}) {
  * a real instruction that merely starts with a slash ("/tmp 下的日志改一下")
  * still counts as a user request.
  */
+/**
+ * Window anchor: the last real user instruction, computed on the structured
+ * rows (not on flattened text). Only this plugin's own slash commands are
+ * exempt - a "/shadow now" must not hide the code written before it.
+ */
+export function computeWindowStart(rows) {
+  let windowRow = -1;
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const row = rows[index];
+    if (!row || row.isSidechain === true || row.type !== "user") continue;
+    const text = extractText(row.message?.content ?? "").trim();
+    if (!text) continue; // tool_result-only user row: not a user instruction
+    windowRow = index;
+    if (!isCommandText(text)) break; // last real instruction found
+  }
+  return windowRow;
+}
+
 function isCommandText(text) {
   return /^\/shadow(-mind:shadow)?(\s|$)/.test(text.trim());
 }

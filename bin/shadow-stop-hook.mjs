@@ -18,6 +18,7 @@ import { serializeTrajectory } from "./trajectory.mjs";
 import { SHADOW_PROTOCOL, mapToolNames } from "./runner.mjs";
 import { claimReports } from "./reports.mjs";
 import { agentDir } from "./paths.mjs";
+import { touchMatchingExt } from "./trigger.mjs";
 
 /** Detach the activated batch to the background collector; never wait here. */
 function spawnCollector(job) {
@@ -37,7 +38,18 @@ async function readForceTrigger() {
   const path = join(agentDir, ".force-trigger.json");
   try {
     const raw = await readFile(path, "utf8");
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.at === "number") return parsed;
+    // Legacy force files (written without a timestamp) fall back to the file
+    // mtime so the TTL still applies to interrupted triggers.
+    try {
+      const { stat } = await import("node:fs/promises");
+      const stats = await stat(path);
+      if (stats.mtimeMs > 0) return { ...parsed, at: stats.mtimeMs };
+    } catch {
+      // stat raced a deletion; fall through to legacy behaviour.
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -116,7 +128,7 @@ async function main(input) {
     // file; there is no automatic draw. Consume the trigger immediately. If
     // this hook gets interrupted (e.g. a new user prompt aborts the run), a
     // stale force file must not silently activate shadows on a later Stop.
-    const force = await readForceTrigger();
+    let force = await readForceTrigger();
     if (force) {
       if (!forceTriggerValid(force)) {
         log("force trigger expired; discarding");
@@ -125,6 +137,15 @@ async function main(input) {
       }
       await clearForceTrigger();
     }
+    // Extension auto trigger: only when no explicit force exists. A turn that
+    // touched a file whose extension is in auto_review_exts activates every
+    // enabled shadow through the same path as /shadow now.
+    if (!force && config.auto_review_enabled && config.auto_review_exts.length) {
+      if (await touchMatchingExt(input?.transcript_path, config.auto_review_exts)) {
+        force = { id: "*", at: Date.now(), reason: "auto_ext" };
+        log(`AUTO review by ext: ${config.auto_review_exts.join(",")}`);
+      }
+    }
     const activated = !force
       ? []
       : snapshot.shadows.filter((shadow) => shadow.enabled
@@ -132,7 +153,7 @@ async function main(input) {
           && !activeIds.has(shadow.id)
           && (force.id === undefined || force.id === "*" || force.id === shadow.id));
     log(force
-      ? `FORCED trigger activated=${activated.map(({ id }) => id).join(",") || "none"}`
+      ? `${force.reason === "auto_ext" ? "AUTO" : "FORCED"} trigger activated=${activated.map(({ id }) => id).join(",") || "none"}`
       : "no manual trigger; skip");
 
     if (!activated.length) {
