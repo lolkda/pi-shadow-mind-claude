@@ -92,21 +92,23 @@ tools: [read, grep, find, ls]
 | `shadow_persistence` | "reuse" | Shadow 会话模式全局默认：复用有记忆（单个定义写 `persistence: ephemeral` 可覆盖为一次性） |
 | `max_resume_turns` | 20 | reuse 模式：达到该轮数后自动开新会话 |
 
-## 工作原理
+## 工作原理（后台模式）
 
 1. 主 Agent 每次响应结束 → `Stop` hook 触发。
-2. hook 读 `transcript_path` 解析净化轨迹（剥 thinking、工具结果摘要化、过滤子任务 sidechain），序列化为 `<main-agent-trajectory>`。
-3. heartbeat 抽签 → 各 Shadow 独立抽签 → 并发上限内并行 spawn `claude -p --safe-mode --permission-mode plan` headless 子会话，stdin 注入"轨迹 + 协议 + 职责"。
-4. 影子判定相关性：无关输出 `NOT_RELEVANT` 静默退出；相关则只读检查后输出报告文本。
-5. 报告合成为 `[name / id]\n内容`，通过 Stop hook 的 `hookSpecificOutput.additionalContext` 注入主会话（转录标记 "Stop hook feedback"，对话继续让主 Agent 处理）。
-6. 用户新输入 → `UserPromptSubmit` hook：epoch+1、`taskkill /T /F` 杀光本会话的影子进程、作废未交付报告（等价 Pi 的 abortAll）。
-7. 会话结束 → `SessionEnd` hook 清孤儿；每次进场先 sweep 过期进程。
+2. hook 读 `transcript_path` 解析净化轨迹（剥 thinking、工具结果摘要化、过滤子任务 sidechain、**窗口化到最近一条用户指令之后**），序列化为 `<main-agent-trajectory>`。
+3. heartbeat 抽签 → 各 Shadow 独立抽签 → 命中后把整批任务交给**独立的后台 collector 进程**（`shadow-collector.mjs`），Stop hook 立即返回，主会话无感。
+4. collector 并行 spawn `claude -p --safe-mode --permission-mode plan` headless 子会话（stdin 注入"轨迹 + 协议 + 职责"，各自独立计时 `timeout_seconds`）。
+5. 影子判定相关性：无关输出 `NOT_RELEVANT` 静默退出；相关则只读检查后输出报告。collector 把报告 **append 到会话独立的报告队列**（`~/.claude/shadow-minds/reports/<sessionId>.jsonl`），不碰 state.json（保持单写者，防陈旧快照覆盖）。
+6. **同一会话同时只跑一组影子**：批未结束前，后续心跳跳过、`/shadow now` 排队（force 文件保留，批结束后下一个 Stop 生效，显式请求不丢）。
+7. 之后任意回合的 `Stop` 先**排水**：对会话队列做原子改名抢占（claim），合成为 `[name / id]\n内容` 注入主会话（`hookSpecificOutput.additionalContext`，对话继续让主 Agent 处理）；正常路径不重复投递，崩溃残留的已抢占队列会在下次排水时恢复。
+8. 用户新输入 → `UserPromptSubmit` hook 只 epoch+1，**不杀后台影子**（后台报告照常送达）。
+9. 会话结束 → `SessionEnd` hook 清孤儿（后台批随会话结束终止）；每次进场先 sweep 过期进程。
 
 ## 与原版的能力差异
 
 - 影子不继承主会话个性化 system prompt（transcript 取不到），使用 Claude Code 默认系统提示 + 注入协议/职责。
 - `report_to_main` 内建工具降级为"影子 stdout 文本即报告"。
-- 异步 400ms 报告批处理窗口未实现（同步模型下无意义）；`headless_drain` 未移植（SessionEnd 只做清孤儿）。
+- 后台收集由独立 `shadow-collector.mjs` 进程实现；Pi 的 400ms 结果批处理窗口与 `headless_drain` 仍不必要（collector 逐报告落盘、Stop 排水）。
 - 状态 widget / 面板未移植，用 `/shadow status` 代替。
 
 ## 开发

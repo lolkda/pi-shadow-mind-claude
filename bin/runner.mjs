@@ -196,3 +196,10 @@ export function formatReport(run, report, maxChars) {
   const trimmed = report.length > maxChars ? `${report.slice(0, maxChars)}…` : report;
   return `${banner}\n${trimmed}`;
 }
+
+/** Normalize shadow stdout into a report; null when silent or NOT_RELEVANT. */
+export function reportText(output) {
+  const text = (output ?? "").trim();
+  if (!text || text.startsWith("NOT_RELEVANT")) return null;
+  return text;
+}

@@ -1,18 +1,35 @@
-// Stop hook: heartbeat → activate shadows → run them in parallel, each with
-// its own timeout budget → collect reports → inject via additionalContext.
+// Stop hook: heartbeat → activate shadows → hand the batch to a detached
+// background collector → later Stops drain finished reports via
+// additionalContext. The hook itself never waits on shadows.
 // Contract: always exit 0; stdout is either an empty string or exactly one JSON object.
 
-import { readStdinJson, logDebug } from "./util.mjs";
+import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { readStdinJson, logDebug } from "./util.mjs";
 import { ConfigStore } from "./config.mjs";
 import { ShadowRegistry } from "./registry.mjs";
 import { StateStore } from "./state.mjs";
 import { decideHeartbeat, matchesModel, createRandom, normalizeModelId } from "./scheduler.mjs";
 import { resolveMainModelId } from "./modelid.mjs";
 import { serializeTrajectory } from "./trajectory.mjs";
-import { runShadow, formatReport, SHADOW_PROTOCOL, mapToolNames } from "./runner.mjs";
+import { SHADOW_PROTOCOL, mapToolNames } from "./runner.mjs";
+import { claimReports } from "./reports.mjs";
 import { agentDir } from "./paths.mjs";
+
+/** Detach the activated batch to the background collector; never wait here. */
+function spawnCollector(job) {
+  const script = join(dirname(fileURLToPath(import.meta.url)), "shadow-collector.mjs");
+  const child = spawn(process.execPath, [script], {
+    windowsHide: true,
+    detached: true,
+    stdio: ["pipe", "ignore", "ignore"],
+  });
+  child.stdin.write(`${JSON.stringify(job)}\n`);
+  child.stdin.end();
+  return child;
+}
 
 /** Read a one-shot manual trigger written by "/shadow now [id]". */
 async function readForceTrigger() {
@@ -70,12 +87,28 @@ async function main(input) {
     await state.sweepStaleRuns(new Set([sessionId]), 3600_000); // reap orphans
 
     const sess = state.session(sessionId);
+
+    // 1) Drain finished background reports first: a completed batch's findings
+    // are delivered before any new activation is considered this turn.
+    const drained = await drainReports(agentDir, sessionId, state, sess, config);
+    if (drained) {
+      return drained;
+    }
+
     if (state.state.paused) {
       log("paused; skip");
       return null;
     }
     if (config.daily_budget_usd !== null && state.state.dailyBudgetSpentUsd >= config.daily_budget_usd) {
       log("daily budget exhausted; skip");
+      return null;
+    }
+
+    // 2) One batch at a time: while shadows still run for this session, defer.
+    // An explicit /shadow now force file is left untouched so it fires once the
+    // current batch drains.
+    if ((sess.activeRuns ?? []).length > 0) {
+      log(`batch active (${sess.activeRuns.length} run(s)); defer${await readForceTrigger() ? " force" : ""}`);
       return null;
     }
 
@@ -119,98 +152,79 @@ async function main(input) {
     });
     log(`trajectory ${trajectory.length} chars`);
 
-    // Run all activated shadows in parallel. Each shadow runs up to its own
-    // timeout_seconds; the Stop hook's own timeout (hooks.json: 600s) is the
-    // hard ceiling, so cap the per-shadow budget just under it as a guard.
+    // Build the per-shadow specs. Each runs up to its own timeout_seconds; the
+    // Stop-completion budget (hooks.json: 600s) is the hard ceiling, so cap the
+    // per-shadow budget just under it as a guard.
     const HOOK_BUDGET_MS = 590_000;
-    sess.claudeSessions = sess.claudeSessions ?? {};
-
-    const results = await Promise.allSettled(activated.map(async (shadow) => {
+    const specs = activated.map((shadow) => {
       const shadowTimeoutMs = (shadow.timeoutSeconds ?? config.default_shadow_timeout_seconds) * 1000;
       const timeoutMs = Math.min(shadowTimeoutMs, HOOK_BUDGET_MS);
       const whitelist = mapToolNames(shadow.tools).tools;
 
       // Persistence: reuse resumes the shadow's own Claude session; otherwise ephemeral.
       const mode = shadow.persistence ?? config.shadow_persistence;
-      const prior = sess.claudeSessions[shadow.id];
+      const prior = sess.claudeSessions?.[shadow.id];
       const resumeSessionId = mode === "reuse" && prior && prior.turns < config.max_resume_turns ? prior.claudeSessionId : undefined;
 
       const prompt = `${trajectory}\n\n${SHADOW_PROTOCOL}\n\n<shadow-mind id="${shadow.id}" name="${shadow.name}">\n${shadow.prompt}\n</shadow-mind>`;
       log(`spawn ${shadow.id} mode=${mode}${resumeSessionId ? ` resume=${resumeSessionId.slice(0, 8)}/${prior.turns}` : " fresh"} tools=${whitelist.join(",")} timeout=${timeoutMs}ms`);
-      const result = await runShadow({
-        cwd,
+      return {
+        id: shadow.id,
+        name: shadow.name,
         prompt,
-        toolWhitelist: whitelist,
-        model: shadowModel(config, shadow),
+        tools: whitelist,
+        model: shadowModel(config, shadow) ?? null,
         effort: config.default_thinking_level,
         useSafeMode: config.use_safe_mode,
         timeoutMs,
         persistSession: mode === "reuse",
         resumeSessionId,
-        onSpawn: (pid) => {
-          sess.activeRuns = sess.activeRuns ?? [];
-          sess.activeRuns.push({ pid, shadowId: shadow.id, startedAt: Date.now() });
-          void state.save();
-        },
-      });
-      // The run finished (or was killed): remove it from the active set.
-      sess.activeRuns = (sess.activeRuns ?? []).filter((run) => run.pid !== result.pid);
+      };
+    });
 
-      // Persist the shadow's Claude session for the next activation (reuse mode).
-      if (mode === "reuse" && result.sessionId) {
-        sess.claudeSessions[shadow.id] = { claudeSessionId: result.sessionId, turns: (prior?.turns ?? 0) + 1, lastAt: Date.now() };
-      }
-      return { shadow, result, report: reportText(result.output) };
-    }));
-
-    const reports = [];
-    for (const settled of results) {
-      if (settled.status === "rejected") {
-        log(`runner rejected: ${settled.reason instanceof Error ? settled.reason.message : String(settled.reason)}`);
-        continue;
-      }
-      const { shadow, result, report } = settled.value;
-      if (result.reason !== "error" && result.reason !== "aborted") {
-        // Approximate cost accounting: a shadow run is at least one API call.
-        state.state.dailyBudgetSpentUsd = (state.state.dailyBudgetSpentUsd ?? 0) + 0.05;
-      }
-      if (report) {
-        const banner = formatReport({ name: shadow.name, id: shadow.id }, report, config.max_report_chars);
-        reports.push(banner);
-        sess.delivered = sess.delivered ?? [];
-        sess.delivered.push({ at: Date.now(), banner, text: report.slice(0, 200) });
-        log(`report from ${shadow.id} (${result.durationMs}ms, ${result.reason})`);
-      } else {
-        log(`silent from ${shadow.id} (${result.durationMs}ms, ${result.reason}${result.exitCode !== undefined ? `, exit=${result.exitCode}` : ""})`);
-      }
-    }
-    await state.save();
-
-    if (!reports.length) return null;
-    const injected = reports.join("\n\n");
-    log(`injecting ${reports.length} report(s), ${injected.length} chars`);
-
-    if (config.report_delivery === "block") {
-      return { decision: "block", reason: injected.slice(0, 4000) };
-    }
-    return {
-      hookSpecificOutput: {
-        hookEventName: "Stop",
-        additionalContext: injected,
-      },
-    };
+    // Hand the whole batch to the detached collector and return immediately:
+    // the main session never waits on shadows. Reports surface via a later
+    // Stop's drain path.
+    spawnCollector({
+      sessionId,
+      workdir: cwd,
+      maxReportChars: config.max_report_chars,
+      shadows: specs,
+    });
+    log(`collector spawned for ${specs.map((s) => s.id).join(",")}`);
+    return null;
   } catch (inner) {
     log(`hook error: ${inner instanceof Error ? inner.message : String(inner)}`);
     return null;
   }
 }
 
-function reportText(output) {
-  const text = (output ?? "").trim();
-  if (!text || text.startsWith("NOT_RELEVANT")) return null;
-  return text;
-}
-
 function shadowModel(config, shadow) {
   return shadow.runWithModel ?? config.default_shadow_model ?? undefined;
+}
+
+/**
+ * Deliver finished background reports. Report delivery runs entirely on the
+ * per-session queue file (collector appends, this drains by atomic rename), so
+ * it cannot race with the collector's state writes.
+ */
+async function drainReports(agentDirPath, sessionId, state, sess, config) {
+  const pending = await claimReports(agentDirPath, sessionId);
+  if (!pending.length) return null;
+  log(`draining ${pending.length} pending report(s)`);
+  // Delivered history is best-effort only; a concurrent collector state.save()
+  // may overwrite it, which never affects delivery itself.
+  sess.delivered = sess.delivered ?? [];
+  sess.delivered.push(...pending);
+  void state.save();
+  const injected = pending.map((report) => report.banner).join("\n\n");
+  if (config.report_delivery === "block") {
+    return { decision: "block", reason: injected.slice(0, 4000) };
+  }
+  return {
+    hookSpecificOutput: {
+      hookEventName: "Stop",
+      additionalContext: injected,
+    },
+  };
 }

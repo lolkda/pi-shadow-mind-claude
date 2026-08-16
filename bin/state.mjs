@@ -73,6 +73,7 @@ export class StateStore {
   /** Kill shadow pids that are no longer alive or stale. Returns number of killed orphans. */
   async sweepStaleRuns(sessionIds, maxAgeMs = 3600_000) {
     let killed = 0;
+    let changed = false;
     const now = Date.now();
     for (const [sessionId, sess] of Object.entries(this.state.sessions)) {
       if (sessionIds && !sessionIds.has(sessionId)) continue;
@@ -81,18 +82,22 @@ export class StateStore {
         const staleByAge = now - run.startedAt > maxAgeMs;
         const dead = !isPidAlive(run.pid);
         if (dead) {
-          continue; // already gone; just drop the record
+          // A crashed collector can leave dead pid records behind; dropping
+          // them must persist or the one-batch-at-a-time gate never re-opens.
+          changed = true;
+          continue;
         }
         if (staleByAge) {
           const success = await killProcessTree(run.pid);
           killed += success ? 1 : 0;
+          changed = true;
           continue;
         }
         remaining.push(run);
       }
       sess.activeRuns = remaining;
     }
-    if (killed > 0) await this.save();
+    if (changed) await this.save();
     return killed;
   }
 }
