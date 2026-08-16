@@ -87,7 +87,7 @@ async function cmdShadow(action, id, extra) {
     const filePath = join(shadowDir, `${id}.md`);
     const name = extra ?? id;
     const prompt = "Describe this Shadow Mind's responsibility.";
-    const source = registry.serialize({ id, name, enabled: true, debug: false, activationProbability: 0.3, activeForModels: ["*"], runWithModel: undefined, thinkingLevel: undefined, timeoutSeconds: undefined, tools: [], prompt });
+    const source = registry.serialize({ id, name, enabled: true, debug: false, activationProbability: 1, activeForModels: ["*"], runWithModel: undefined, thinkingLevel: undefined, timeoutSeconds: undefined, tools: [], prompt });
     if (snapshot.shadows.some((s) => s.id === id)) throw new Error(`shadow already exists: ${id}`);
     const parsed = parseShadowMarkdown(source, filePath);
     await writeFile(filePath, source, { encoding: "utf8", flag: "wx" });

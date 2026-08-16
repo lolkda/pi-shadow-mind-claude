@@ -3,7 +3,7 @@ id: architecture-review
 name: Architecture review
 enabled: true
 debug: false
-activation_probability: 0.2
+activation_probability: 1
 active_for_models: ["*"]
 tools: [read, grep, find, ls]
 ---

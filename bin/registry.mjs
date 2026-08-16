@@ -28,7 +28,7 @@ function parseShadowMarkdown(source, filePath) {
     name: (value.name ?? id).toString().trim() || id,
     enabled: value.enabled === undefined ? true : Boolean(value.enabled),
     debug: value.debug === undefined ? false : Boolean(value.debug),
-    activationProbability: probability(value.activation_probability, 0.3),
+    activationProbability: probability(value.activation_probability, 1),
     activeForModels: stringArray(value.active_for_models, ["*"]),
     runWithModel: optionalString(value.run_with_model),
     thinkingLevel: optionalString(value.thinking_level),

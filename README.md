@@ -38,7 +38,7 @@ claude --plugin-dir <克隆路径> -p "..."
 ---
 id: architecture-review
 name: Architecture review
-activation_probability: 0.3
+activation_probability: 1
 active_for_models: ["*"]
 tools: [read, grep, find, ls]
 ---
@@ -47,7 +47,7 @@ tools: [read, grep, find, ls]
 脆弱的扩展点。只报告有证据、可行动的问题；与职责无关时不要介入。
 ````
 
-字段：`id`（必填，`[a-z0-9_-]`）、`name`、`enabled`（默认 true）、`debug`、`activation_probability`（0–1，默认 0.3）、`active_for_models`（默认 `["*"]`）、`run_with_model`、`thinking_level`、`timeout_seconds`（默认 300）、`tools`（可识别的名字见下）、正文 = 职责 prompt。
+字段：`id`（必填，`[a-z0-9_-]`）、`name`、`enabled`（默认 true）、`debug`、`activation_probability`（0–1，**默认 1** = 心跳命中即必审，想降频可调小如 0.3）、`active_for_models`（默认 `["*"]`）、`run_with_model`、`thinking_level`、`timeout_seconds`（默认 300）、`tools`（可识别的名字见下）、正文 = 职责 prompt。
 
 **工具名映射**（Pi 名 → Claude Code 名）：`read→Read`、`grep→Grep`、`find→Glob`、`ls→LS`、`webfetch→WebFetch`、`websearch→WebSearch`、`task→Task`、`bash→Bash`（必须显式声明才放行）。未识别的名字按原版语义丢弃。默认只读集 `read,grep,find,ls` 始终合并。
 

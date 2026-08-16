@@ -33,10 +33,23 @@ test("defaults from filename id when id missing", () => {
   assert.equal(shadow.name, "X");
 });
 
-test("defaults enabled=true and probability 0.3", () => {
+test("defaults enabled=true and probability 1", () => {
   const shadow = parseShadowMarkdown("---\nid: a\n---\nbody", "C:/x/a.md");
   assert.equal(shadow.enabled, true);
-  assert.equal(shadow.activationProbability, 0.3);
+  assert.equal(shadow.activationProbability, 1);
+});
+
+test("default probability 1 means heartbeat hit always activates", async () => {
+  const { decideHeartbeat } = await import("../bin/scheduler.mjs");
+  const out = decideHeartbeat({
+    heartbeatProbability: 1,
+    availableSlots: 1,
+    shadows: [parseShadowMarkdown("---\nid: a\n---\nbody", "C:/x/a.md")],
+    activeShadowIds: new Set(),
+    mainModelId: "m",
+    random: () => 0.999, // high roll, still activates with probability 1
+  });
+  assert.equal(out.activated.length, 1);
 });
 
 test("throws on missing frontmatter", () => {
