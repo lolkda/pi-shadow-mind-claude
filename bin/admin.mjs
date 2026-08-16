@@ -3,7 +3,7 @@
 // All writes to shadow definition files are plain file operations; user confirmation
 // is the responsibility of the invoking agent/user.
 
-import { writeFile, unlink, readFile, mkdir } from "node:fs/promises";
+import { writeFile, unlink, readFile, mkdir, rm } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { configPath, statePath, shadowDir, agentDir } from "./paths.mjs";
 import { ConfigStore, validateConfig } from "./config.mjs";
@@ -138,8 +138,20 @@ async function main() {
       output = "Shadow Mind resumed.";
       break;
     }
+    case "now": {
+      // One-shot manual trigger: the next Stop hook fires shadows deterministically.
+      const targetId = rest[0] ?? "*";
+      const snapshot = await registry.load();
+      if (targetId !== "*" && !snapshot.shadows.some((s) => s.id === targetId)) {
+        throw new Error(`shadow not found: ${targetId}`);
+      }
+      await rm(join(agentDir, ".force-trigger.json"), { force: true });
+      await writeFile(join(agentDir, ".force-trigger.json"), `${JSON.stringify({ id: targetId, at: Date.now() }, null, 2)}\n`, "utf8");
+      output = `Force trigger armed: next turn will review ${targetId === "*" ? "all enabled shadows" : targetId}. Ask the main agent anything to end its current turn, then watch for reports.`;
+      break;
+    }
     default:
-      throw new Error("usage: status | pause | resume | list | create | delete | config get|set");
+      throw new Error("usage: status | pause | resume | now [id] | list | create | delete | config get|set");
   }
   process.stdout.write(`${output}\n`);
 }

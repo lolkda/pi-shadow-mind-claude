@@ -3,14 +3,37 @@
 // Contract: always exit 0; stdout is either an empty string or exactly one JSON object.
 
 import { readStdinJson, logDebug } from "./util.mjs";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { ConfigStore } from "./config.mjs";
 import { ShadowRegistry } from "./registry.mjs";
 import { StateStore } from "./state.mjs";
-import { decideHeartbeat, createRandom, normalizeModelId } from "./scheduler.mjs";
+import { decideHeartbeat, matchesModel, createRandom, normalizeModelId } from "./scheduler.mjs";
 import { resolveMainModelId } from "./modelid.mjs";
 import { serializeTrajectory } from "./trajectory.mjs";
 import { runShadow, formatReport, SHADOW_PROTOCOL, mapToolNames } from "./runner.mjs";
 import { agentDir } from "./paths.mjs";
+
+/** Read a one-shot manual trigger written by "/shadow now [id]". */
+async function readForceTrigger() {
+  const path = join(agentDir, ".force-trigger.json");
+  try {
+    const raw = await readFile(path, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/** Consume the trigger file after a forced run. */
+async function clearForceTrigger() {
+  try {
+    const { unlink } = await import("node:fs/promises");
+    await unlink(join(agentDir, ".force-trigger.json"));
+  } catch {
+    // Already gone; fine.
+  }
+}
 
 const input = await readStdinJson();
 if (process.env.CLAUDE_CODE_SHADOW_MIND === "1") process.exit(0);
@@ -58,17 +81,34 @@ async function main(input) {
 
     const mainModelId = normalizeModelId(await resolveMainModelId() ?? "");
     const activeIds = new Set((sess.activeRuns ?? []).map((run) => run.shadowId));
-    const decision = decideHeartbeat({
-      heartbeatProbability: config.heartbeat_probability,
-      availableSlots: Math.max(0, config.max_parallel_shadows - activeIds.size),
-      shadows: snapshot.shadows,
-      activeShadowIds: activeIds,
-      mainModelId,
-      random: createRandom(config.random_seed ?? undefined),
-    });
-    log(`heartbeat roll=${decision.heartbeatRoll.toFixed(4)} activated=${decision.activated.map(({ shadow }) => shadow.id).join(",") || "none"}`);
 
-    if (!decision.activated.length) return null;
+    // Manual trigger via "/shadow now [id]": a force file makes this heartbeat
+    // deterministic (bypasses heartbeat_probability and activation_probability).
+    const force = await readForceTrigger();
+    const decision = force
+      ? null
+      : decideHeartbeat({
+          heartbeatProbability: config.heartbeat_probability,
+          availableSlots: Math.max(0, config.max_parallel_shadows - activeIds.size),
+          shadows: snapshot.shadows,
+          activeShadowIds: activeIds,
+          mainModelId,
+          random: createRandom(config.random_seed ?? undefined),
+        });
+    const activated = force
+      ? snapshot.shadows.filter((shadow) => shadow.enabled
+          && matchesModel(shadow, mainModelId)
+          && !activeIds.has(shadow.id)
+          && (force.id === undefined || force.id === "*" || force.id === shadow.id))
+      : decision.activated.map(({ shadow }) => shadow);
+    log(force
+      ? `FORCED trigger activated=${activated.map(({ id }) => id).join(",") || "none"}`
+      : `heartbeat roll=${decision.heartbeatRoll.toFixed(4)} activated=${activated.map(({ id }) => id).join(",") || "none"}`);
+
+    if (!activated.length) {
+      if (force) await clearForceTrigger();
+      return null;
+    }
 
     const trajectory = await serializeTrajectory(input?.transcript_path, {
       maxChars: config.max_trajectory_chars,
@@ -80,7 +120,7 @@ async function main(input) {
     const deadline = Date.now() + config.max_wait_ms;
     sess.claudeSessions = sess.claudeSessions ?? {};
 
-    const results = await Promise.allSettled(decision.activated.map(async ({ shadow }) => {
+    const results = await Promise.allSettled(activated.map(async (shadow) => {
       const shadowTimeoutMs = (shadow.timeoutSeconds ?? config.default_shadow_timeout_seconds) * 1000;
       const timeoutMs = Math.min(shadowTimeoutMs, Math.max(1000, deadline - Date.now()));
       const whitelist = mapToolNames(shadow.tools).tools;
@@ -140,6 +180,7 @@ async function main(input) {
       }
     }
     await state.save();
+    if (force) await clearForceTrigger();
 
     if (!reports.length) return null;
     const injected = reports.join("\n\n");
