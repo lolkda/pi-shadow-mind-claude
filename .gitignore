@@ -1,0 +1,13 @@
+# Node
+node_modules/
+*.log
+
+# Local runtime state (never committed)
+shadow-minds/config.json
+shadow-debug.log
+state.json
+test-hook-invoked.txt
+
+# OS
+.DS_Store
+Thumbs.db

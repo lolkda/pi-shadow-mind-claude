@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "D:/Application/node/node.exe",
+            "args": ["D:/Personal/Desktop/新建文件夹 (6)/pi-shadow-mind-claude/bin/shadow-stop-hook.mjs"],
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "D:/Application/node/node.exe",
+            "args": ["D:/Personal/Desktop/新建文件夹 (6)/pi-shadow-mind-claude/bin/shadow-input-hook.mjs"],
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "D:/Application/node/node.exe",
+            "args": ["D:/Personal/Desktop/新建文件夹 (6)/pi-shadow-mind-claude/bin/shadow-session-end.mjs"],
+            "timeout": 1
+          }
+        ]
+      }
+    ]
+  }
+}
