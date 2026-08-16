@@ -90,7 +90,7 @@ async function main(input) {
 
     // 1) Drain finished background reports first: a completed batch's findings
     // are delivered before any new activation is considered this turn.
-    const drained = await drainReports(agentDir, sessionId, state, sess, config);
+    const drained = await drainReports(agentDir, sessionId, state, sess, config, log);
     if (drained) {
       return drained;
     }
@@ -208,7 +208,7 @@ function shadowModel(config, shadow) {
  * per-session queue file (collector appends, this drains by atomic rename), so
  * it cannot race with the collector's state writes.
  */
-async function drainReports(agentDirPath, sessionId, state, sess, config) {
+async function drainReports(agentDirPath, sessionId, state, sess, config, log) {
   const pending = await claimReports(agentDirPath, sessionId);
   if (!pending.length) return null;
   log(`draining ${pending.length} pending report(s)`);
