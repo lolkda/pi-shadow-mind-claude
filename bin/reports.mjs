@@ -55,20 +55,26 @@ export async function claimReports(agentDir, sessionId) {
         continue; // another drainer claimed it first
       }
     }
+    let raw;
     try {
-      const raw = await readFile(claimedPath, "utf8");
-      for (const line of raw.split(/\r?\n/)) {
-        const text = line.trim();
-        if (!text) continue;
-        try {
-          reports.push(JSON.parse(text));
-        } catch {
-          // Skip a broken line; never fail the drain.
-        }
-      }
-    } finally {
-      await unlink(claimedPath).catch(() => {});
+      raw = await readFile(claimedPath, "utf8");
+    } catch {
+      // Claimed but unreadable: leave the file in place so the next drain
+      // recovers it instead of losing the report permanently.
+      continue;
     }
+    for (const line of raw.split(/\r?\n/)) {
+      const text = line.trim();
+      if (!text) continue;
+      try {
+        reports.push(JSON.parse(text));
+      } catch {
+        // Skip a broken line; never fail the drain.
+      }
+    }
+    // Fully consumed: safe to drop the queue now. If the drainer crashes after
+    // this point the records are already queued for injection in memory.
+    await unlink(claimedPath).catch(() => {});
   }
   return reports;
 }

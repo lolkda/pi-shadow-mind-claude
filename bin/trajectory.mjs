@@ -127,9 +127,13 @@ export async function serializeTrajectory(transcriptPath, options = {}) {
 
   // Window to the most recent user request: shadows review the main agent's
   // work implementing the latest user instruction, i.e. everything from the
-  // last USER: message onward. Older turns are dropped so the current work is
-  // never cut off by the character cap.
-  const lastUser = lines.findLastIndex((line) => line.startsWith("USER: "));
+  // last real USER: message onward. Slash-command messages like
+  // "/shadow now" are not instructions to the main agent and must not reset
+  // the window, or the code written before the command would never be
+  // reviewed. Older turns are dropped so the current work is never cut off by
+  // the character cap.
+  let lastUser = lines.findLastIndex((line) => line.startsWith("USER: ") && !line.startsWith("USER: /"));
+  if (lastUser < 0) lastUser = lines.findLastIndex((line) => line.startsWith("USER: ")); // fallback: all were commands
   if (lastUser > 0) lines.splice(0, lastUser);
 
   // last_assistant_message fallback: the transcript may not include the final message at Stop time.

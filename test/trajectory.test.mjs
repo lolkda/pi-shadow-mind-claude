@@ -1,5 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serializeTrajectory, MAX_TRAJECTORY_CHARS } from "../bin/trajectory.mjs";
 import { summarizeToolResult } from "../bin/summaries.mjs";
@@ -43,6 +46,28 @@ test("last_assistant_message not duplicated when already present", async () => {
 test("missing file yields empty (not thrown) trajectory", async () => {
   const out = await serializeTrajectory("C:/definitely/missing.jsonl", {});
   assert.equal(out.trim(), "<main-agent-trajectory>\n\n</main-agent-trajectory>");
+});
+
+test("slash-command user lines do not reset the review window", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "shadow-trajectory-test-"));
+  const file = join(dir, "session.jsonl");
+  const rows = [
+    { type: "user", message: { role: "user", content: "写个登录模块" }, isSidechain: false },
+    { type: "assistant", message: { role: "assistant", content: [{ type: "text", text: "实现代码完成" }] }, isSidechain: false },
+    { type: "user", message: { role: "user", content: "/shadow-mind:shadow now" }, isSidechain: false },
+    { type: "assistant", message: { role: "assistant", content: [{ type: "text", text: "已触发审阅" }] }, isSidechain: false },
+  ];
+  await writeFile(file, `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`, "utf8");
+  try {
+    const out = await serializeTrajectory(file);
+    // the real instruction's work stays in the window despite the command after it
+    assert.ok(out.includes("USER: 写个登录模块"));
+    assert.ok(out.includes("MAIN: 实现代码完成"));
+    assert.ok(out.includes("USER: /shadow-mind:shadow now"));
+    assert.ok(out.includes("MAIN: 已触发审阅"));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test("respects maxChars truncation", async () => {
