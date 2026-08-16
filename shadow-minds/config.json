@@ -11,6 +11,6 @@
   "use_safe_mode": true,
   "daily_budget_usd": null,
   "report_delivery": "context",
-  "shadow_persistence": "ephemeral",
+  "shadow_persistence": "reuse",
   "max_resume_turns": 20
 }

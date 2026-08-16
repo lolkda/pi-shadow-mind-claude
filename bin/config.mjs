@@ -20,7 +20,7 @@ export const DEFAULT_CONFIG = {
   use_safe_mode: true,
   daily_budget_usd: null,
   report_delivery: "context", // "context" | "block" (experimental)
-  shadow_persistence: "ephemeral", // "ephemeral" | "reuse"
+  shadow_persistence: "reuse", // "ephemeral" | "reuse"
   max_resume_turns: 20, // reuse mode: open a fresh session after this many turns
 };
 

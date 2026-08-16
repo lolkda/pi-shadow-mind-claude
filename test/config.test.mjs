@@ -9,6 +9,17 @@ test("defaults when empty", () => {
   assert.equal(config.default_thinking_level, "medium");
   assert.equal(config.max_wait_ms, 90000);
   assert.equal(config.use_safe_mode, true);
+  assert.equal(config.shadow_persistence, "reuse");
+  assert.equal(config.max_resume_turns, 20);
+});
+
+test("accepts ephemeral persistence override", () => {
+  const config = validateConfig({ shadow_persistence: "ephemeral" });
+  assert.equal(config.shadow_persistence, "ephemeral");
+});
+
+test("rejects invalid persistence value", () => {
+  assert.throws(() => validateConfig({ shadow_persistence: "bogus" }), /must be "ephemeral" or "reuse"/);
 });
 
 test("accepts full valid config", () => {

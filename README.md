@@ -51,15 +51,10 @@ tools: [read, grep, find, ls]
 
 ### 持久会话（reuse）
 
-默认每次激活都是全新的一次性会话（`ephemeral`）。要让某个 Shadow 拥有**跨轮记忆**（记住之前发现的问题、跟踪长期隐患），在定义里加：
+**全局默认已是 `persistence: reuse`**（带记忆）。默认情况下所有 Shadow 每次激活都通过 `claude -p --resume <session_id>` 延续自己的会话，记住此前各轮的发现。
 
-```yaml
-persistence: reuse
-```
-
-- 复用 = 每次激活通过 `claude -p --resume <session_id>` 延续该 Shadow 自己的会话（`--output-format json` 捕获 session_id）
 - 达到 `max_resume_turns`（默认 20）后自动开新会话，防止上下文无限膨胀
-- 也可改全局默认：`config set shadow_persistence reuse`（单个定义加 `persistence: ephemeral` 可覆盖）
+- 想让某个 Shadow 每次全新（零记忆、省 token）：定义里写 `persistence: ephemeral`，或全局改 `config set shadow_persistence ephemeral`
 - 内置示例：`memory-reviewer.example.md`（带记忆的审查员）
 
 注意：`reuse` 模式成本更高（每次携带历史上下文），且影子对历史轨迹的记忆会增加 token 消耗。
@@ -95,7 +90,7 @@ persistence: reuse
 | `use_safe_mode` | true | 影子进程加 `--safe-mode`（禁 hooks/插件/CLAUDE.md/MCP，防重入） |
 | `daily_budget_usd` | null | 每日成本封顶，达到后冻结抽签（约 0.05/次估算） |
 | `report_delivery` | "context" | `"context"`=additionalContext 注入；`"block"`=decision block（实验） |
-| `shadow_persistence` | "ephemeral" | Shadow 会话模式全局默认：一次性 / 复用有记忆（单个定义 `persistence` 可覆盖） |
+| `shadow_persistence` | "reuse" | Shadow 会话模式全局默认：复用有记忆（单个定义写 `persistence: ephemeral` 可覆盖为一次性） |
 | `max_resume_turns` | 20 | reuse 模式：达到该轮数后自动开新会话 |
 
 ## 工作原理
