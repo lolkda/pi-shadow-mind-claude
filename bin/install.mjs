@@ -14,6 +14,7 @@ import { readFile, writeFile, mkdir, copyFile, cp, rm, readdir } from "node:fs/p
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { buildManifest } from "./manifest.mjs";
 
 const pluginDir = normalize(process.argv[2] ?? dirname(dirname(fileURLToPath(import.meta.url))));
 const nodePath = normalize(process.argv[3] ?? process.execPath);
@@ -22,6 +23,7 @@ const claudeDir = join(home, ".claude");
 const agentDir = join(claudeDir, "shadow-minds");
 const markerPath = join(claudeDir, "shadow-mind.json");
 const skillsDir = join(claudeDir, "skills");
+const manifestPath = join(agentDir, ".installed-manifest.json");
 
 function normalize(p) {
   return p.replace(/\\/g, "/");
@@ -80,12 +82,25 @@ async function installSkillsCopy() {
   return target;
 }
 
+async function writeManifest(copyTarget) {
+  const repoFiles = await buildManifest(pluginDir);
+  const copyFiles = await buildManifest(copyTarget);
+  await writeFile(manifestPath, `${JSON.stringify({
+    at: new Date().toISOString(),
+    repoDir: normalize(pluginDir),
+    copyDir: normalize(copyTarget),
+    repoFiles,
+    copyFiles,
+  }, null, 2)}\n`, "utf8");
+}
+
 // --- main ---
 await ensureAgentDir();
 await generateHooks();
 await seedShadows();
 await writeMarker();
 const copyTarget = await installSkillsCopy();
+await writeManifest(copyTarget);
 
 process.stdout.write([
   "shadow-mind installed.",
@@ -94,6 +109,7 @@ process.stdout.write([
   `  state:   ${agentDir} (config + shadows)`,
   `  skills:  ${copyTarget} → loads as shadow-mind@skills-dir`,
   `  marker:  ${markerPath}`,
+  `  checksum: ${manifestPath} (drift check via /shadow status)`,
   "Next: restart Claude Code (or /reload-plugins). Shadow Minds activate automatically.",
   `       /shadow status to verify.`,
 ].join("\n"));

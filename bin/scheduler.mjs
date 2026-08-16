@@ -12,3 +12,10 @@ export function matchesModel(shadow, fullModelId) {
 export function normalizeModelId(id) {
   return String(id ?? "").toLowerCase().replace(/\s+/g, "");
 }
+
+/** One-shot force triggers expire so a stale file can never silently re-activate. */
+export const FORCE_TTL_MS = 3600_000;
+
+export function forceTriggerValid(force, now = Date.now()) {
+  return Boolean(force) && (typeof force.at !== "number" || now - force.at <= FORCE_TTL_MS);
+}

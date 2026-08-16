@@ -12,7 +12,7 @@ import { readStdinJson, logDebug } from "./util.mjs";
 import { ConfigStore } from "./config.mjs";
 import { ShadowRegistry } from "./registry.mjs";
 import { StateStore } from "./state.mjs";
-import { matchesModel, normalizeModelId } from "./scheduler.mjs";
+import { matchesModel, normalizeModelId, forceTriggerValid } from "./scheduler.mjs";
 import { resolveMainModelId } from "./modelid.mjs";
 import { serializeTrajectory } from "./trajectory.mjs";
 import { SHADOW_PROTOCOL, mapToolNames } from "./runner.mjs";
@@ -48,8 +48,8 @@ async function clearForceTrigger() {
   try {
     const { unlink } = await import("node:fs/promises");
     await unlink(join(agentDir, ".force-trigger.json"));
-  } catch {
-    // Already gone; fine.
+  } catch (error) {
+    logDebug(agentDir, `[stop] clearForceTrigger failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -117,7 +117,14 @@ async function main(input) {
     // this hook gets interrupted (e.g. a new user prompt aborts the run), a
     // stale force file must not silently activate shadows on a later Stop.
     const force = await readForceTrigger();
-    if (force) await clearForceTrigger();
+    if (force) {
+      if (!forceTriggerValid(force)) {
+        log("force trigger expired; discarding");
+        await clearForceTrigger();
+        return null;
+      }
+      await clearForceTrigger();
+    }
     const activated = !force
       ? []
       : snapshot.shadows.filter((shadow) => shadow.enabled

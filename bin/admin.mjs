@@ -8,6 +8,7 @@ import { join, dirname } from "node:path";
 import { configPath, statePath, shadowDir, agentDir } from "./paths.mjs";
 import { ConfigStore, validateConfig } from "./config.mjs";
 import { ShadowRegistry, parseShadowMarkdown } from "./registry.mjs";
+import { diffManifest } from "./manifest.mjs";
 
 const registry = new ShadowRegistry();
 const configStore = new ConfigStore();
@@ -23,6 +24,42 @@ async function readState() {
 async function writeState(state) {
   await mkdir(dirname(statePath), { recursive: true });
   await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+}
+
+async function readDrift() {
+  let raw;
+  try {
+    raw = await readFile(join(agentDir, ".installed-manifest.json"), "utf8");
+  } catch {
+    return ["install: no manifest (old install; rerun install.mjs)"];
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(raw);
+  } catch (error) {
+    return [`install: manifest unreadable (${error instanceof Error ? error.message : String(error)})`];
+  }
+  const lines = [];
+  try {
+    const repoDiff = await diffManifest(manifest.repoFiles, manifest.repoDir);
+    if (repoDiff.length) {
+      lines.push(`✗ repo changed since install: ${repoDiff.length} file(s) differ (rerun install.mjs)`);
+      lines.push(...repoDiff.slice(0, 8).map((d) => `  ${d.path} (${d.state})`));
+      if (repoDiff.length > 8) lines.push(`  … and ${repoDiff.length - 8} more`);
+    }
+  } catch {
+    lines.push("✗ repo dir unreachable");
+  }
+  try {
+    const copyDiff = await diffManifest(manifest.copyFiles, manifest.copyDir);
+    if (copyDiff.length) {
+      lines.push(`✗ installed copy drifted: ${copyDiff.length} file(s) differ`);
+      lines.push(...copyDiff.slice(0, 8).map((d) => `  ${d.path} (${d.state})`));
+    }
+  } catch {
+    lines.push("✗ installed copy unreachable");
+  }
+  return lines.length ? lines : ["install: in sync"];
 }
 
 async function cmdStatus() {
@@ -46,7 +83,8 @@ async function cmdStatus() {
     return `session ${sessionId.slice(0, 8)} · epoch ${sess.epoch ?? state.epoch} · active ${active} · delivered ${sess.delivered?.length ?? 0}${reuse ? ` · reuse: ${reuse}` : ""}`;
   });
   const header = state.paused ? "paused" : "active";
-  return [`🐙 Shadow Mind · ${header}`, ...configLines, ...(sessionLines.length ? ["", "sessions:", ...sessionLines] : []), "", "Commands: /shadow pause | resume | status | hide", "", "Shadows:",
+  const driftLines = await readDrift();
+  return [`🐙 Shadow Mind · ${header}`, ...configLines, "", ...driftLines, ...(sessionLines.length ? ["", "sessions:", ...sessionLines] : []), "", "Commands: /shadow pause | resume | status | hide", "", "Shadows:",
     ...(snapshot.shadows.length ? snapshot.shadows.map((s) => `  ${s.enabled ? "enabled" : "disabled"} ${s.id} (${s.name}) models=${s.activeForModels.join(",")} tools=${s.tools.join(",") || "default"} file=${s.filePath}`) : ["  (none)"]),
   ].join("\n");
 }
