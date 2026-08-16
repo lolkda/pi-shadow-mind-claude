@@ -1,16 +1,16 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "pi-shadow-mind",
-  "description": "Port of pi-shadow-mind: background shadow agents (Shadow Minds) for Claude Code",
+  "name": "shadow-mind",
+  "description": "Background shadow agents (Shadow Minds) for Claude Code",
   "owner": {
-    "name": "liuzhengdongfortest"
+    "name": "lolkda"
   },
   "plugins": [
     {
-      "name": "pi-shadow-mind",
+      "name": "shadow-mind",
       "description": "Parallel cognitive runtime for Claude Code",
       "author": {
-        "name": "liuzhengdongfortest"
+        "name": "lolkda"
       },
       "source": {
         "source": "directory",

@@ -63,7 +63,7 @@ async function writeMarker() {
 
 async function installSkillsCopy() {
   // Auto-load as <pluginName>@skills-dir so hooks load in every new session.
-  const name = "pi-shadow-mind";
+  const name = "shadow-mind";
   const target = join(skillsDir, name);
   await mkdir(skillsDir, { recursive: true });
   await rm(target, { recursive: true, force: true });
@@ -88,11 +88,11 @@ await writeMarker();
 const copyTarget = await installSkillsCopy();
 
 process.stdout.write([
-  "pi-shadow-mind installed.",
+  "shadow-mind installed.",
   `  plugin:  ${pluginDir}`,
   `  hooks:   ${join(pluginDir, "hooks", "hooks.json")} (regenerated)`,
   `  state:   ${agentDir} (config + shadows)`,
-  `  skills:  ${copyTarget} → loads as pi-shadow-mind@skills-dir`,
+  `  skills:  ${copyTarget} → loads as shadow-mind@skills-dir`,
   `  marker:  ${markerPath}`,
   "Next: restart Claude Code (or /reload-plugins). Shadow Minds activate automatically.",
   `       /shadow status to verify.`,

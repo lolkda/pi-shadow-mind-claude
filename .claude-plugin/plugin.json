@@ -1,8 +1,11 @@
 {
-  "name": "pi-shadow-mind",
-  "description": "Port of pi-shadow-mind: background shadow agents (Shadow Minds) that heartbeat-review the main agent's trajectory after every turn and report findings back via Stop-hook injection.",
-  "version": "0.1.0",
+  "name": "shadow-mind",
+  "description": "Background shadow agents (Shadow Minds) for Claude Code: after every turn they heartbeat-review the main agent's trajectory and report findings back via Stop-hook injection.",
+  "version": "0.2.0",
   "author": {
-    "name": "port-author"
-  }
+    "name": "lolkda"
+  },
+  "homepage": "https://github.com/lolkda/pi-shadow-mind-claude",
+  "repository": "https://github.com/lolkda/pi-shadow-mind-claude",
+  "license": "MIT"
 }

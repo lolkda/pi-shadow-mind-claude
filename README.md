@@ -19,7 +19,7 @@ node bin/install.mjs
 1. 从 `hooks/hooks.template.json` 生成 `hooks/hooks.json`（写入本机 node 与插件绝对路径，该文件不入库）
 2. 初始化 `~/.claude/shadow-minds/`（默认 config.json）
 3. 播种内置 Shadow 示例：`code-reviewer` + `architecture-review`（不会覆盖你已有的定义）
-4. 把插件复制到 `~/.claude/skills/pi-shadow-mind/`，作为 `pi-shadow-mind@skills-dir` 全局自动加载
+4. 把插件复制到 `~/.claude/skills/shadow-mind/`，作为 `shadow-mind@skills-dir` 全局自动加载
 5. 写 `~/.claude/shadow-mind.json` 标记，供 `/shadow` 命令解析插件路径
 
 验证：`/shadow status` 应显示 `definitions: 2 valid`。

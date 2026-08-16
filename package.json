@@ -1,7 +1,7 @@
 {
-  "name": "pi-shadow-mind",
-  "version": "0.1.0",
-  "description": "Parallel cognitive runtime for Claude Code (port of pi-shadow-mind)",
+  "name": "shadow-mind",
+  "version": "0.2.0",
+  "description": "Background shadow agents (Shadow Minds) for Claude Code",
   "type": "module",
   "private": true,
   "engines": {
