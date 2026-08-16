@@ -60,6 +60,22 @@ test("throws on empty body", () => {
   assert.throws(() => parseShadowMarkdown("---\nid: a\n---\n   ", "C:/x/a.md"), /prompt body is empty/);
 });
 
+test("parses persistence field", () => {
+  const p = parseShadowMarkdown("---\nid: a\npersistence: reuse\n---\nbody", "C:/x/a.md");
+  assert.equal(p.persistence, "reuse");
+  const d = parseShadowMarkdown("---\nid: b\n---\nbody", "C:/x/b.md");
+  assert.equal(d.persistence, undefined);
+  assert.throws(() => parseShadowMarkdown("---\nid: c\npersistence: bogus\n---\nbody", "C:/x/c.md"), /must be one of/);
+});
+
+test("serialize round-trips persistence", async () => {
+  const { ShadowRegistry } = await import("../bin/registry.mjs");
+  const registry = new ShadowRegistry();
+  const parsed = parseShadowMarkdown("---\nid: mem\npersistence: reuse\n---\nbody", "C:/x/mem.md");
+  const reparsed = parseShadowMarkdown(registry.serialize(parsed), "C:/x/mem.md");
+  assert.equal(reparsed.persistence, "reuse");
+});
+
 test("throws on invalid id pattern", () => {
   assert.throws(() => parseShadowMarkdown("---\nid: Bad Id!\n---\nbody", "C:/x/a.md"), /id must match/);
 });

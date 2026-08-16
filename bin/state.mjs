@@ -16,7 +16,7 @@ const DEFAULT_STATE = () => ({
 });
 
 function emptySession() {
-  return { epoch: 0, activeRuns: [], delivered: [], lastHeartbeatAt: null };
+  return { epoch: 0, activeRuns: [], delivered: [], lastHeartbeatAt: null, claudeSessions: {} };
 }
 
 export class StateStore {

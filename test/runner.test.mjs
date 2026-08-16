@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mapToolNames, formatReport, extractResultText, DEFAULT_READ_TOOLS } from "../bin/runner.mjs";
+import { mapToolNames, formatReport, extractResultText, extractSessionId, DEFAULT_READ_TOOLS } from "../bin/runner.mjs";
 
 test("maps pi tool names to Claude Code names", () => {
   const { tools, missing } = mapToolNames(["read", "grep", "ls", "webfetch", "nonexistent_tool"]);
@@ -52,4 +52,19 @@ test("extractResultText falls back to plain text stripping noise lines", () => {
 
 test("extractResultText ignores empty output", () => {
   assert.equal(extractResultText(""), "");
+});
+
+test("extractSessionId parses result JSON", () => {
+  const out = extractSessionId(JSON.stringify({ session_id: "abc-123", result: "ok" }));
+  assert.equal(out, "abc-123");
+});
+
+test("extractSessionId tolerates a leading noise line", () => {
+  const out = extractSessionId(`[claude-code:unrecognized_model] x\n${JSON.stringify({ session_id: "sid-9", result: "ok" })}`);
+  assert.equal(out, "sid-9");
+});
+
+test("extractSessionId returns null on garbage or empty", () => {
+  assert.equal(extractSessionId(""), null);
+  assert.equal(extractSessionId("not json at all"), null);
 });

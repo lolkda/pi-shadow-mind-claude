@@ -41,7 +41,9 @@ async function cmdStatus() {
   ];
   const sessionLines = Object.entries(state.sessions).map(([sessionId, sess]) => {
     const active = sess.activeRuns?.length ?? 0;
-    return `session ${sessionId.slice(0, 8)} · epoch ${sess.epoch ?? state.epoch} · active ${active} · delivered ${sess.delivered?.length ?? 0}`;
+    const sessions = sess.claudeSessions ?? {};
+    const reuse = Object.entries(sessions).map(([shadowId, s]) => `${shadowId}(${s.turns}t)`).join(", ");
+    return `session ${sessionId.slice(0, 8)} · epoch ${sess.epoch ?? state.epoch} · active ${active} · delivered ${sess.delivered?.length ?? 0}${reuse ? ` · reuse: ${reuse}` : ""}`;
   });
   const header = state.paused ? "paused" : "active";
   return [`🐙 Shadow Mind · ${header}`, ...configLines, ...(sessionLines.length ? ["", "sessions:", ...sessionLines] : []), "", "Commands: /shadow pause | resume | status | hide", "", "Shadows:",

@@ -33,6 +33,7 @@ function parseShadowMarkdown(source, filePath) {
     runWithModel: optionalString(value.run_with_model),
     thinkingLevel: optionalString(value.thinking_level),
     timeoutSeconds: optionalPositive(value.timeout_seconds),
+    persistence: enumValue(value.persistence, ["ephemeral", "reuse"], undefined),
     tools: stringArray(value.tools, []),
     prompt,
     filePath,
@@ -55,6 +56,12 @@ function optionalString(value) {
   if (value === undefined || value === null) return undefined;
   if (typeof value !== "string" || !value.trim()) throw new Error("expects a non-empty string");
   return value.trim();
+}
+
+function enumValue(value, allowed, fallback) {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value !== "string" || !allowed.includes(value)) throw new Error(`must be one of: ${allowed.join(", ")}`);
+  return value;
 }
 
 function stringArray(value, fallback) {
@@ -129,6 +136,7 @@ export class ShadowRegistry {
       ...(shadow.runWithModel !== undefined ? { run_with_model: shadow.runWithModel } : {}),
       ...(shadow.thinkingLevel !== undefined ? { thinking_level: shadow.thinkingLevel } : {}),
       ...(shadow.timeoutSeconds !== undefined ? { timeout_seconds: shadow.timeoutSeconds } : {}),
+      ...(shadow.persistence !== undefined ? { persistence: shadow.persistence } : {}),
       tools: shadow.tools,
     };
     return serializeFrontmatter(meta, shadow.prompt);

@@ -78,13 +78,20 @@ async function main(input) {
 
     // Run all activated shadows in parallel under one shared deadline.
     const deadline = Date.now() + config.max_wait_ms;
+    sess.claudeSessions = sess.claudeSessions ?? {};
 
     const results = await Promise.allSettled(decision.activated.map(async ({ shadow }) => {
       const shadowTimeoutMs = (shadow.timeoutSeconds ?? config.default_shadow_timeout_seconds) * 1000;
       const timeoutMs = Math.min(shadowTimeoutMs, Math.max(1000, deadline - Date.now()));
       const whitelist = mapToolNames(shadow.tools).tools;
+
+      // Persistence: reuse resumes the shadow's own Claude session; otherwise ephemeral.
+      const mode = shadow.persistence ?? config.shadow_persistence;
+      const prior = sess.claudeSessions[shadow.id];
+      const resumeSessionId = mode === "reuse" && prior && prior.turns < config.max_resume_turns ? prior.claudeSessionId : undefined;
+
       const prompt = `${trajectory}\n\n${SHADOW_PROTOCOL}\n\n<shadow-mind id="${shadow.id}" name="${shadow.name}">\n${shadow.prompt}\n</shadow-mind>`;
-      log(`spawn ${shadow.id} tools=${whitelist.join(",")} timeout=${timeoutMs}ms`);
+      log(`spawn ${shadow.id} mode=${mode}${resumeSessionId ? ` resume=${resumeSessionId.slice(0, 8)}/${prior.turns}` : " fresh"} tools=${whitelist.join(",")} timeout=${timeoutMs}ms`);
       const result = await runShadow({
         cwd,
         prompt,
@@ -93,6 +100,8 @@ async function main(input) {
         effort: config.default_thinking_level,
         useSafeMode: config.use_safe_mode,
         timeoutMs,
+        persistSession: mode === "reuse",
+        resumeSessionId,
         onSpawn: (pid) => {
           sess.activeRuns = sess.activeRuns ?? [];
           sess.activeRuns.push({ pid, shadowId: shadow.id, startedAt: Date.now() });
@@ -101,6 +110,11 @@ async function main(input) {
       });
       // The run finished (or was killed): remove it from the active set.
       sess.activeRuns = (sess.activeRuns ?? []).filter((run) => run.pid !== result.pid);
+
+      // Persist the shadow's Claude session for the next activation (reuse mode).
+      if (mode === "reuse" && result.sessionId) {
+        sess.claudeSessions[shadow.id] = { claudeSessionId: result.sessionId, turns: (prior?.turns ?? 0) + 1, lastAt: Date.now() };
+      }
       return { shadow, result, report: reportText(result.output) };
     }));
 

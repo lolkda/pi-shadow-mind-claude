@@ -73,11 +73,16 @@ export async function runShadow(request) {
     "-p",
     "--input-format", "text",
     "--output-format", "json",
-    "--no-session-persistence",
     "--permission-mode", "plan",
     "--allowedTools", request.toolWhitelist.join(","),
     "--tools", request.toolWhitelist.join(","),
   ];
+  // Persistence modes: reuse continues a prior session (memory), ephemeral is fresh.
+  if (request.resumeSessionId) {
+    args.push("--resume", request.resumeSessionId);
+  } else if (!request.persistSession) {
+    args.push("--no-session-persistence");
+  }
   if (request.useSafeMode) args.push("--safe-mode");
   if (request.model) args.push("--model", request.model);
   if (request.effort) args.push("--effort", request.effort);
@@ -128,11 +133,37 @@ export async function runShadow(request) {
         output: extractResultText(stdout),
         pid: child.pid ?? null,
         durationMs: Date.now() - started,
+        ...(request.persistSession || request.resumeSessionId ? { sessionId: extractSessionId(stdout) } : {}),
         ...(stderr && { stderr: stderr.slice(0, 2000) }),
         ...(reason === "error" && code !== null ? { exitCode: code } : {}),
       });
     });
   });
+}
+
+/** Extract the Claude session_id from --output-format json stdout (nullable). */
+export function extractSessionId(stdout) {
+  const parsed = tryParseResultJson(stdout);
+  if (parsed && typeof parsed.session_id === "string") return parsed.session_id;
+  return null;
+}
+
+/** Parse the result JSON, tolerating a leading stderr noise line. */
+function tryParseResultJson(stdout) {
+  if (!stdout) return null;
+  try {
+    return JSON.parse(stdout.trim());
+  } catch {
+    const firstNewline = stdout.indexOf("\n");
+    if (firstNewline > 0) {
+      try {
+        return JSON.parse(stdout.slice(firstNewline + 1).trim());
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
 }
 
 /** Extract the assistant text from --output-format json stdout, tolerantly. */

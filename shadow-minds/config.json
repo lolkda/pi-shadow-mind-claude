@@ -10,5 +10,7 @@
   "max_trajectory_chars": 200000,
   "use_safe_mode": true,
   "daily_budget_usd": null,
-  "report_delivery": "context"
+  "report_delivery": "context",
+  "shadow_persistence": "ephemeral",
+  "max_resume_turns": 20
 }

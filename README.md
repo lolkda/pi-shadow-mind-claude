@@ -47,7 +47,22 @@ tools: [read, grep, find, ls]
 脆弱的扩展点。只报告有证据、可行动的问题；与职责无关时不要介入。
 ````
 
-字段：`id`（必填，`[a-z0-9_-]`）、`name`、`enabled`（默认 true）、`debug`、`activation_probability`（0–1，**默认 1** = 心跳命中即必审，想降频可调小如 0.3）、`active_for_models`（默认 `["*"]`）、`run_with_model`、`thinking_level`、`timeout_seconds`（默认 300）、`tools`（可识别的名字见下）、正文 = 职责 prompt。
+字段：`id`（必填，`[a-z0-9_-]`）、`name`、`enabled`（默认 true）、`debug`、`activation_probability`（0–1，**默认 1** = 心跳命中即必审，想降频可调小如 0.3）、`active_for_models`（默认 `["*"]`）、`run_with_model`、`thinking_level`、`timeout_seconds`（默认 300）、**`persistence`**（`ephemeral` 每次全新会话 / `reuse` 复用有记忆的持久会话）、`tools`（可识别的名字见下）、正文 = 职责 prompt。
+
+### 持久会话（reuse）
+
+默认每次激活都是全新的一次性会话（`ephemeral`）。要让某个 Shadow 拥有**跨轮记忆**（记住之前发现的问题、跟踪长期隐患），在定义里加：
+
+```yaml
+persistence: reuse
+```
+
+- 复用 = 每次激活通过 `claude -p --resume <session_id>` 延续该 Shadow 自己的会话（`--output-format json` 捕获 session_id）
+- 达到 `max_resume_turns`（默认 20）后自动开新会话，防止上下文无限膨胀
+- 也可改全局默认：`config set shadow_persistence reuse`（单个定义加 `persistence: ephemeral` 可覆盖）
+- 内置示例：`memory-reviewer.example.md`（带记忆的审查员）
+
+注意：`reuse` 模式成本更高（每次携带历史上下文），且影子对历史轨迹的记忆会增加 token 消耗。
 
 **工具名映射**（Pi 名 → Claude Code 名）：`read→Read`、`grep→Grep`、`find→Glob`、`ls→LS`、`webfetch→WebFetch`、`websearch→WebSearch`、`task→Task`、`bash→Bash`（必须显式声明才放行）。未识别的名字按原版语义丢弃。默认只读集 `read,grep,find,ls` 始终合并。
 
@@ -80,6 +95,8 @@ tools: [read, grep, find, ls]
 | `use_safe_mode` | true | 影子进程加 `--safe-mode`（禁 hooks/插件/CLAUDE.md/MCP，防重入） |
 | `daily_budget_usd` | null | 每日成本封顶，达到后冻结抽签（约 0.05/次估算） |
 | `report_delivery` | "context" | `"context"`=additionalContext 注入；`"block"`=decision block（实验） |
+| `shadow_persistence` | "ephemeral" | Shadow 会话模式全局默认：一次性 / 复用有记忆（单个定义 `persistence` 可覆盖） |
+| `max_resume_turns` | 20 | reuse 模式：达到该轮数后自动开新会话 |
 
 ## 工作原理
 

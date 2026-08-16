@@ -20,6 +20,8 @@ export const DEFAULT_CONFIG = {
   use_safe_mode: true,
   daily_budget_usd: null,
   report_delivery: "context", // "context" | "block" (experimental)
+  shadow_persistence: "ephemeral", // "ephemeral" | "reuse"
+  max_resume_turns: 20, // reuse mode: open a fresh session after this many turns
 };
 
 const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
@@ -94,6 +96,12 @@ function validate(raw) {
   const delivery = value.report_delivery ?? DEFAULT_CONFIG.report_delivery;
   if (delivery !== "context" && delivery !== "block") throw new Error("report_delivery must be \"context\" or \"block\"");
   result.report_delivery = delivery;
+
+  const persistence = value.shadow_persistence ?? DEFAULT_CONFIG.shadow_persistence;
+  if (persistence !== "ephemeral" && persistence !== "reuse") throw new Error("shadow_persistence must be \"ephemeral\" or \"reuse\"");
+  result.shadow_persistence = persistence;
+
+  result.max_resume_turns = positiveInt("max_resume_turns", DEFAULT_CONFIG.max_resume_turns);
 
   return result;
 }
