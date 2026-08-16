@@ -80,13 +80,12 @@ tools: [read, grep, find, ls]
 |---|---|---|
 | `heartbeat_probability` | 0.3333 | 每轮结束后抽签概率 |
 | `max_parallel_shadows` | 2 | 最大并发影子数 |
-| `default_shadow_timeout_seconds` | 300 | 影子单轮超时（上限还受 `max_wait_ms` 约束） |
-| `max_wait_ms` | 90000 | Stop hook 内所有影子共享的等待预算，到期强杀 |
+| `default_shadow_timeout_seconds` | 300 | 单个影子单轮超时（并行影子各自独立计时，互不共享预算；硬上限为 Stop hook 自身的 600s 超时） |
 | `default_shadow_model` | null | 影子模型（不设则继承默认） |
 | `default_thinking_level` | "medium" | 映射为 `--effort` |
 | `random_seed` | null | 可复现抽签 |
 | `max_report_chars` | 4000 | 报告截断长度 |
-| `max_trajectory_chars` | 200000 | 轨迹截断长度 |
+| `max_trajectory_chars` | 50000 | 轨迹截断长度（保留**最近**的部分，超长时丢弃更早内容） |
 | `use_safe_mode` | true | 影子进程加 `--safe-mode`（禁 hooks/插件/CLAUDE.md/MCP，防重入） |
 | `daily_budget_usd` | null | 每日成本封顶，达到后冻结抽签（约 0.05/次估算） |
 | `report_delivery` | "context" | `"context"`=additionalContext 注入；`"block"`=decision block（实验） |

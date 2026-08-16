@@ -14,9 +14,8 @@ export const DEFAULT_CONFIG = {
   default_shadow_model: null,
   default_thinking_level: "medium",
   random_seed: null,
-  max_wait_ms: 90000,
   max_report_chars: 4000,
-  max_trajectory_chars: 200000,
+  max_trajectory_chars: 50000,
   use_safe_mode: true,
   daily_budget_usd: null,
   report_delivery: "context", // "context" | "block" (experimental)
@@ -65,7 +64,6 @@ function validate(raw) {
   result.default_shadow_timeout_seconds = positive("default_shadow_timeout_seconds", DEFAULT_CONFIG.default_shadow_timeout_seconds);
   result.headless_drain_timeout_seconds = positive("headless_drain_timeout_seconds", DEFAULT_CONFIG.headless_drain_timeout_seconds);
   result.result_batch_window_ms = nonNegativeInt("result_batch_window_ms", DEFAULT_CONFIG.result_batch_window_ms);
-  result.max_wait_ms = nonNegativeInt("max_wait_ms", DEFAULT_CONFIG.max_wait_ms);
   result.max_report_chars = nonNegativeInt("max_report_chars", DEFAULT_CONFIG.max_report_chars);
   result.max_trajectory_chars = nonNegativeInt("max_trajectory_chars", DEFAULT_CONFIG.max_trajectory_chars);
   result.daily_budget_usd = (() => {

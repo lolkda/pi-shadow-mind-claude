@@ -1,5 +1,5 @@
-// Stop hook: heartbeat → activate shadows → run them in parallel within the
-// max_wait_ms budget → collect reports → inject via additionalContext.
+// Stop hook: heartbeat → activate shadows → run them in parallel, each with
+// its own timeout budget → collect reports → inject via additionalContext.
 // Contract: always exit 0; stdout is either an empty string or exactly one JSON object.
 
 import { readStdinJson, logDebug } from "./util.mjs";
@@ -119,13 +119,15 @@ async function main(input) {
     });
     log(`trajectory ${trajectory.length} chars`);
 
-    // Run all activated shadows in parallel under one shared deadline.
-    const deadline = Date.now() + config.max_wait_ms;
+    // Run all activated shadows in parallel. Each shadow runs up to its own
+    // timeout_seconds; the Stop hook's own timeout (hooks.json: 600s) is the
+    // hard ceiling, so cap the per-shadow budget just under it as a guard.
+    const HOOK_BUDGET_MS = 590_000;
     sess.claudeSessions = sess.claudeSessions ?? {};
 
     const results = await Promise.allSettled(activated.map(async (shadow) => {
       const shadowTimeoutMs = (shadow.timeoutSeconds ?? config.default_shadow_timeout_seconds) * 1000;
-      const timeoutMs = Math.min(shadowTimeoutMs, Math.max(1000, deadline - Date.now()));
+      const timeoutMs = Math.min(shadowTimeoutMs, HOOK_BUDGET_MS);
       const whitelist = mapToolNames(shadow.tools).tools;
 
       // Persistence: reuse resumes the shadow's own Claude session; otherwise ephemeral.

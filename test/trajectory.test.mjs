@@ -6,27 +6,27 @@ import { summarizeToolResult } from "../bin/summaries.mjs";
 
 const FIXTURE = fileURLToPath(new URL("./fixtures/main-session.jsonl", import.meta.url));
 
-test("serializes sanitized trajectory", async () => {
+test("windows to the most recent user request", async () => {
   const out = await serializeTrajectory(FIXTURE);
   assert.ok(out.startsWith("<main-agent-trajectory>\n"));
   assert.ok(out.endsWith("</main-agent-trajectory>"));
-  assert.ok(out.includes("USER: 写一个按逗号拆分的函数到 split.js"));
-  assert.ok(out.includes("MAIN: 我来写这个函数。"));
-  // thinking stripped
-  assert.ok(!out.includes("让我先想一下"));
-  // tool use with linked result summary (generic summarizer for Write)
-  assert.ok(out.includes('TOOL: Write({"file_path":"split.js"'), out);
-  assert.ok(out.includes("text · 22 chars"));
-  // read/grep-family tools get the line-count summarizer
+  // window starts at the last real USER message
+  assert.ok(out.includes("USER: 再加个测试文件"));
+  assert.ok(out.startsWith("<main-agent-trajectory>\nUSER: 再加个测试文件"));
+  // the current turn's agent work is present
   assert.ok(out.includes("TOOL: Grep({"));
   assert.ok(out.includes("2 entries · split.js"));
+  assert.ok(out.includes("MAIN: 测试文件已加好，函数在 split.js"));
+  // older turns and their tool chatter are dropped
+  assert.ok(!out.includes("USER: 写一个按逗号拆分的函数到 split.js"));
+  assert.ok(!out.includes('TOOL: Write({"file_path":"split.js"'));
+  assert.ok(!out.includes("MAIN: 我来写这个函数。"));
+  // thinking stripped
+  assert.ok(!out.includes("让我先想一下"));
   // sidechain assistant text must be filtered
   assert.ok(!out.includes("文件已创建，请看 split.js"));
   // sidechain user must be filtered
   assert.ok(!out.includes("子任务完成了吗"));
-  // final assistant message from fixture (main, non-sidechain) appears at most once
-  const mainCount = (out.match(/MAIN: 我来写这个函数。/g) ?? []).length;
-  assert.equal(mainCount, 1);
 });
 
 test("last_assistant_message fallback appends missing MAIN", async () => {
@@ -35,8 +35,8 @@ test("last_assistant_message fallback appends missing MAIN", async () => {
 });
 
 test("last_assistant_message not duplicated when already present", async () => {
-  const out = await serializeTrajectory(FIXTURE, { lastAssistantMessage: "我来写这个函数。" });
-  const count = (out.match(/我来写这个函数。/g) ?? []).length;
+  const out = await serializeTrajectory(FIXTURE, { lastAssistantMessage: "测试文件已加好，函数在 split.js" });
+  const count = (out.match(/测试文件已加好，函数在 split.js/g) ?? []).length;
   assert.equal(count, 1);
 });
 
@@ -46,8 +46,8 @@ test("missing file yields empty (not thrown) trajectory", async () => {
 });
 
 test("respects maxChars truncation", async () => {
-  const out = await serializeTrajectory(FIXTURE, { maxChars: 120 });
-  assert.ok(out.includes("[trajectory truncated]"));
+  const out = await serializeTrajectory(FIXTURE, { maxChars: 60 });
+  assert.ok(out.includes("[earlier trajectory truncated]"));
 });
 
 test("module exposes a cap constant", () => {

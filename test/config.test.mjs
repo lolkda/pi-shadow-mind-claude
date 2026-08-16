@@ -7,7 +7,7 @@ test("defaults when empty", () => {
   assert.equal(config.heartbeat_probability, 1 / 3);
   assert.equal(config.max_parallel_shadows, 2);
   assert.equal(config.default_thinking_level, "medium");
-  assert.equal(config.max_wait_ms, 90000);
+  assert.equal(config.default_shadow_timeout_seconds, 300);
   assert.equal(config.use_safe_mode, true);
   assert.equal(config.shadow_persistence, "reuse");
   assert.equal(config.max_resume_turns, 20);
@@ -30,7 +30,6 @@ test("accepts full valid config", () => {
     default_shadow_model: "deepseek-v4-flash",
     default_thinking_level: "low",
     random_seed: 42,
-    max_wait_ms: 60000,
     max_report_chars: 2000,
     max_trajectory_chars: 100000,
     use_safe_mode: false,
@@ -63,7 +62,7 @@ test("rejects bad daily budget", () => {
 test("normalizes to defaults for legacy fields", () => {
   const config = validateConfig({ headless_drain_timeout_seconds: 60, result_batch_window_ms: 400 });
   assert.equal(config.headless_drain_timeout_seconds, 60);
-  assert.ok(config.max_wait_ms > 0);
+  assert.equal(config.default_shadow_timeout_seconds, 300);
 });
 
 test("DEFAULT_CONFIG validates cleanly", () => {

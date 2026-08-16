@@ -125,6 +125,13 @@ export async function serializeTrajectory(transcriptPath, options = {}) {
     }
   }
 
+  // Window to the most recent user request: shadows review the main agent's
+  // work implementing the latest user instruction, i.e. everything from the
+  // last USER: message onward. Older turns are dropped so the current work is
+  // never cut off by the character cap.
+  const lastUser = lines.findLastIndex((line) => line.startsWith("USER: "));
+  if (lastUser > 0) lines.splice(0, lastUser);
+
   // last_assistant_message fallback: the transcript may not include the final message at Stop time.
   const lastAssistant = (options.lastAssistantMessage ?? "").trim();
   if (lastAssistant && !lines.some((line) => line.startsWith("MAIN:") && line.slice(5).includes(lastAssistant.slice(0, 40)))) {
@@ -132,7 +139,9 @@ export async function serializeTrajectory(transcriptPath, options = {}) {
   }
 
   let body = lines.join("\n");
-  if (body.length > maxChars) body = `${body.slice(0, maxChars)}\n[trajectory truncated]`;
+  // Keep the most recent portion: shadows review what the main agent did
+  // recently; head truncation would drop exactly the current turn's work.
+  if (body.length > maxChars) body = `[earlier trajectory truncated]\n${body.slice(-maxChars)}`;
   return `<main-agent-trajectory>\n${body}\n</main-agent-trajectory>`;
 }
 

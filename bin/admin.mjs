@@ -34,7 +34,7 @@ async function cmdStatus() {
   const configLines = [
     "Shadow Mind status",
     `config: ${error ?? "ok"}`,
-    `heartbeat ${config.heartbeat_probability} · max parallel ${config.max_parallel_shadows} · wait ${config.max_wait_ms}ms · timeout ${config.default_shadow_timeout_seconds}s · effort ${config.default_thinking_level}`,
+    `heartbeat ${config.heartbeat_probability} · max parallel ${config.max_parallel_shadows} · timeout ${config.default_shadow_timeout_seconds}s · effort ${config.default_thinking_level}`,
     `safe-mode ${config.use_safe_mode} · report ${config.report_delivery} · daily budget ${config.daily_budget_usd ?? "unset"} (spent ${state.dailyBudgetSpentUsd.toFixed(3)})`,
     `definitions: ${snapshot.shadows.length} valid · ${snapshot.diagnostics.length} invalid`,
     ...snapshot.diagnostics.map((d) => `  ! ${d.filePath}: ${d.message}`),
