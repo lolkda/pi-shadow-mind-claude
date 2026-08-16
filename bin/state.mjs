@@ -20,9 +20,11 @@ function emptySession() {
 }
 
 export class StateStore {
-  constructor() {
+  constructor(options = {}) {
     this.path = statePath;
     this.state = DEFAULT_STATE();
+    // Test seam: allow injecting a rename implementation (defaults to fs).
+    this._rename = options.rename ?? rename;
   }
 
   session(sessionId) {
@@ -48,7 +50,24 @@ export class StateStore {
     await mkdir(dirname(this.path), { recursive: true });
     const temp = join(dirname(this.path), `.state-${randomUUID()}.tmp`);
     await writeFile(temp, `${JSON.stringify(this.state, null, 2)}\n`, "utf8");
-    await rename(temp, this.path);
+    // Windows EPERM: rename fails when another process (e.g. a concurrent hook
+    // or another session) has state.json open. Retry, then fall back to a
+    // direct write so state is never lost.
+    try {
+      await this._rename(temp, this.path);
+    } catch {
+      await waitMs(30);
+      try {
+        await this._rename(temp, this.path);
+      } catch {
+        try {
+          const content = await readFile(temp, "utf8");
+          await writeFile(this.path, content, "utf8");
+        } finally {
+          try { await rename(temp, temp + ".bak"); } catch { /* ignore */ }
+        }
+      }
+    }
   }
 
   /** Kill shadow pids that are no longer alive or stale. Returns number of killed orphans. */
@@ -76,6 +95,10 @@ export class StateStore {
     if (killed > 0) await this.save();
     return killed;
   }
+}
+
+function waitMs(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export { DEFAULT_STATE };

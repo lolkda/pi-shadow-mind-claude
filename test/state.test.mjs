@@ -51,6 +51,28 @@ test("load tolerates missing/corrupt file", async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
+test("save survives a locked target file (EPERM fallback)", async () => {
+  const dir = await makeStore();
+  // Inject a rename that always throws EPERM to exercise the fallback path.
+  let threw = false;
+  const store = new StateStore({
+    rename: async () => {
+      threw = true;
+      const e = new Error("EPERM: operation not permitted, rename");
+      e.code = "EPERM";
+      throw e;
+    },
+  });
+  store.path = join(dir, "state.json");
+  store.session("s1").epoch = 8;
+  await store.save();
+  assert.ok(threw, "rename fallback path was exercised");
+  const { readFile } = await import("node:fs/promises");
+  const onDisk = JSON.parse(await readFile(store.path, "utf8"));
+  assert.equal(onDisk.sessions["s1"].epoch, 8);
+  await rm(dir, { recursive: true, force: true });
+});
+
 test("sweepStaleRuns drops dead process records and keeps live fresh ones", async () => {
   const dir = await makeStore();
   const store = new StateStore();
