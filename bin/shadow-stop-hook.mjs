@@ -167,7 +167,10 @@ async function main(input) {
       const prior = sess.claudeSessions?.[shadow.id];
       const resumeSessionId = mode === "reuse" && prior && prior.turns < config.max_resume_turns ? prior.claudeSessionId : undefined;
 
-      const prompt = `${trajectory}\n\n${SHADOW_PROTOCOL}\n\n<shadow-mind id="${shadow.id}" name="${shadow.name}">\n${shadow.prompt}\n</shadow-mind>`;
+      // Tell the shadow its hard budget up front: it has no clock, but the
+      // stated limit steers it toward targeted checks and an early report
+      // instead of exhaustive scans that run into the kill.
+      const prompt = `${trajectory}\n\n${SHADOW_PROTOCOL}\n\n<shadow-mind id="${shadow.id}" name="${shadow.name}">\n${shadow.prompt}\n</shadow-mind>\n\nTime budget: you must finish your review and report within ${Math.round(timeoutMs / 1000)} seconds. Plan for it - prefer targeted verification over exhaustive scans and start drafting the report early.`;
       log(`spawn ${shadow.id} mode=${mode}${resumeSessionId ? ` resume=${resumeSessionId.slice(0, 8)}/${prior.turns}` : " fresh"} tools=${whitelist.join(",")} timeout=${timeoutMs}ms`);
       return {
         id: shadow.id,

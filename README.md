@@ -80,7 +80,7 @@ tools: [read, grep, find, ls]
 |---|---|---|
 | `heartbeat_probability` | 0.3333 | 每轮结束后抽签概率 |
 | `max_parallel_shadows` | 2 | 最大并发影子数 |
-| `default_shadow_timeout_seconds` | 300 | 单个影子单轮超时（并行影子各自独立计时，互不共享预算；硬上限为 Stop hook 自身的 600s 超时） |
+| `default_shadow_timeout_seconds` | 300 | 单个影子单轮超时（并行影子各自独立计时，互不共享预算；硬上限为 Stop hook 自身的 600s 超时；超时=强杀丢弃报告，影子会在提示词里收到该时间预算以便提前收尾） |
 | `default_shadow_model` | null | 影子模型（不设则继承默认） |
 | `default_thinking_level` | "medium" | 映射为 `--effort` |
 | `random_seed` | null | 可复现抽签 |
