@@ -85,7 +85,7 @@ tools: [read, grep, find, ls]
 | `default_thinking_level` | "medium" | 映射为 `--effort` |
 | `random_seed` | null | 可复现抽签 |
 | `max_report_chars` | 4000 | 报告截断长度 |
-| `max_trajectory_chars` | 50000 | 轨迹截断长度（保留**最近**的部分，超长时丢弃更早内容） |
+| `max_trajectory_chars` | null | 轨迹截断长度；`null` = 不截断，全文喂给影子（窗口化保证截掉的永远是最旧部分） |
 | `use_safe_mode` | true | 影子进程加 `--safe-mode`（禁 hooks/插件/CLAUDE.md/MCP，防重入） |
 | `daily_budget_usd` | null | 每日成本封顶，达到后冻结抽签（约 0.05/次估算） |
 | `report_delivery` | "context" | `"context"`=additionalContext 注入；`"block"`=decision block（实验） |

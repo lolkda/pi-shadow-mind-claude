@@ -6,7 +6,7 @@
   "default_thinking_level": "medium",
   "random_seed": null,
   "max_report_chars": 4000,
-  "max_trajectory_chars": 50000,
+  "max_trajectory_chars": null,
   "use_safe_mode": true,
   "daily_budget_usd": null,
   "report_delivery": "context",

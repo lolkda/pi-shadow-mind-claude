@@ -147,7 +147,8 @@ async function main(input) {
     }
 
     const trajectory = await serializeTrajectory(input?.transcript_path, {
-      maxChars: config.max_trajectory_chars,
+      // null config = feed the full window; Infinity disables the char cap.
+      maxChars: config.max_trajectory_chars ?? Infinity,
       lastAssistantMessage: input?.last_assistant_message,
     });
     log(`trajectory ${trajectory.length} chars`);

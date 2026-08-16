@@ -93,6 +93,12 @@ test("respects maxChars truncation", async () => {
   assert.ok(out.includes("[earlier trajectory truncated]"));
 });
 
+test("null maxChars disables truncation entirely", async () => {
+  const out = await serializeTrajectory(FIXTURE, { maxChars: null });
+  assert.ok(!out.includes("truncated"));
+  assert.ok(out.includes("USER: 再加个测试文件"));
+});
+
 test("module exposes a cap constant", () => {
   assert.ok(MAX_TRAJECTORY_CHARS > 0);
 });

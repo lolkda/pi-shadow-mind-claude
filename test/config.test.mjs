@@ -8,6 +8,7 @@ test("defaults when empty", () => {
   assert.equal(config.max_parallel_shadows, 2);
   assert.equal(config.default_thinking_level, "medium");
   assert.equal(config.default_shadow_timeout_seconds, 300);
+  assert.equal(config.max_trajectory_chars, null);
   assert.equal(config.use_safe_mode, true);
   assert.equal(config.shadow_persistence, "reuse");
   assert.equal(config.max_resume_turns, 20);
