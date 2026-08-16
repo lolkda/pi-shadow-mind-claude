@@ -1,0 +1,14 @@
+{
+  "heartbeat_probability": 0.3333,
+  "max_parallel_shadows": 2,
+  "default_shadow_timeout_seconds": 300,
+  "default_shadow_model": null,
+  "default_thinking_level": "medium",
+  "random_seed": null,
+  "max_wait_ms": 90000,
+  "max_report_chars": 4000,
+  "max_trajectory_chars": 200000,
+  "use_safe_mode": true,
+  "daily_budget_usd": null,
+  "report_delivery": "context"
+}

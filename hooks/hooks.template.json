@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{NODE_PATH}}",
+            "args": ["{{PLUGIN_DIR}}/bin/shadow-stop-hook.mjs"],
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{NODE_PATH}}",
+            "args": ["{{PLUGIN_DIR}}/bin/shadow-input-hook.mjs"],
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{NODE_PATH}}",
+            "args": ["{{PLUGIN_DIR}}/bin/shadow-session-end.mjs"],
+            "timeout": 1
+          }
+        ]
+      }
+    ]
+  }
+}
