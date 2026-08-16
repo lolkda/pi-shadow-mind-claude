@@ -1,4 +1,4 @@
-# pi-shadow-mind (Claude Code port)
+# shadow-mind (Claude Code port)
 
 把 Pi 编码 Agent 的 [pi-shadow-mind](https://github.com/liuzhengdongfortest/pi-shadow-mind) 移植为 Claude Code 插件：为主 Agent 配置多个**并行运行的影子认知核心**（Shadow Minds），每次回合结束后按概率抽签激活，审阅主 Agent 轨迹并将发现回注给主 Agent —— "边实现，边审阅"。
 
@@ -9,8 +9,8 @@
 克隆后只需一条命令，即可在本机全局启用（hooks 自动加载、默认 Shadow 自动播种）：
 
 ```powershell
-git clone https://github.com/lolkda/pi-shadow-mind-claude
-cd pi-shadow-mind-claude
+git clone https://github.com/lolkda/shadow-mind-claude
+cd shadow-mind-claude
 node bin/install.mjs
 # 重启 Claude Code（或 /reload-plugins）后自动生效
 ```
@@ -114,5 +114,5 @@ tools: [read, grep, find, ls]
 
 ```powershell
 npm test          # node --test test/*.test.mjs
-claude plugin validate --strict .\pi-shadow-mind-claude
+claude plugin validate --strict .\shadow-mind-claude
 ```
