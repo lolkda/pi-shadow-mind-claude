@@ -85,6 +85,10 @@ async function main(input) {
     // Manual trigger via "/shadow now [id]": a force file makes this heartbeat
     // deterministic (bypasses heartbeat_probability and activation_probability).
     const force = await readForceTrigger();
+    // Consume the one-shot trigger immediately. If this hook gets interrupted
+    // (e.g. a new user prompt aborts the run), a stale force file must not
+    // silently force-activate shadows on a later Stop.
+    if (force) await clearForceTrigger();
     const decision = force
       ? null
       : decideHeartbeat({
@@ -106,7 +110,6 @@ async function main(input) {
       : `heartbeat roll=${decision.heartbeatRoll.toFixed(4)} activated=${activated.map(({ id }) => id).join(",") || "none"}`);
 
     if (!activated.length) {
-      if (force) await clearForceTrigger();
       return null;
     }
 
@@ -180,7 +183,6 @@ async function main(input) {
       }
     }
     await state.save();
-    if (force) await clearForceTrigger();
 
     if (!reports.length) return null;
     const injected = reports.join("\n\n");
