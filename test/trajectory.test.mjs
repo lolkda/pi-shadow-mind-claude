@@ -48,6 +48,24 @@ test("missing file yields empty (not thrown) trajectory", async () => {
   assert.equal(out.trim(), "<main-agent-trajectory>\n\n</main-agent-trajectory>");
 });
 
+test("slash-leading real instructions still anchor the window", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "shadow-trajectory-test-"));
+  const file = join(dir, "session.jsonl");
+  const rows = [
+    { type: "user", message: { role: "user", content: "/tmp 下的日志改一下" }, isSidechain: false },
+    { type: "assistant", message: { role: "assistant", content: [{ type: "text", text: "日志已改" }] }, isSidechain: false },
+  ];
+  await writeFile(file, `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`, "utf8");
+  try {
+    const out = await serializeTrajectory(file);
+    // "/tmp ..." is a real instruction, not a command: it must anchor the window
+    assert.ok(out.includes("USER: /tmp 下的日志改一下"));
+    assert.ok(out.includes("MAIN: 日志已改"));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("slash-command user lines do not reset the review window", async () => {
   const dir = await mkdtemp(join(tmpdir(), "shadow-trajectory-test-"));
   const file = join(dir, "session.jsonl");

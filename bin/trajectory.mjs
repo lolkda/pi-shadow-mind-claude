@@ -78,9 +78,27 @@ export async function serializeTrajectory(transcriptPath, options = {}) {
     // Transcript unreadable is treated as an empty trajectory, not an error.
   }
 
-  // Pass 2: emit sanitized lines.
+  // Window anchor: the last real user instruction. Computed on the structured
+  // rows (not on flattened text) so the window semantics stay decoupled from
+  // the serialization format, and only this plugin's own slash commands are
+  // exempt - a "/shadow now" must not hide the code written before it.
+  let windowRow = -1;
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const row = rows[index];
+    if (!row || row.isSidechain === true || row.type !== "user") continue;
+    const text = extractText(row.message?.content ?? "").trim();
+    if (!text) continue; // tool_result-only user row: not a user instruction
+    windowRow = index;
+    if (!isCommandText(text)) break; // last real instruction found
+  }
+
+  // Pass 2: emit sanitized lines (only from the window anchor onward).
   const lines = [];
-  for (const row of rows) {
+  let windowOpen = windowRow < 0;
+  for (let index = 0; index < rows.length; index += 1) {
+    if (index === windowRow) windowOpen = true;
+    if (!windowOpen) continue;
+    const row = rows[index];
     if (!row || typeof row !== "object") continue;
     if (row.isSidechain === true) continue; // subagent rows must not leak into main trajectory
     if (row.type === "system") {
@@ -125,20 +143,10 @@ export async function serializeTrajectory(transcriptPath, options = {}) {
     }
   }
 
-  // Window to the most recent user request: shadows review the main agent's
-  // work implementing the latest user instruction, i.e. everything from the
-  // last real USER: message onward. Slash-command messages like
-  // "/shadow now" are not instructions to the main agent and must not reset
-  // the window, or the code written before the command would never be
-  // reviewed. Older turns are dropped so the current work is never cut off by
-  // the character cap.
-  let lastUser = lines.findLastIndex((line) => line.startsWith("USER: ") && !line.startsWith("USER: /"));
-  if (lastUser < 0) lastUser = lines.findLastIndex((line) => line.startsWith("USER: ")); // fallback: all were commands
-  if (lastUser > 0) lines.splice(0, lastUser);
-
-  // last_assistant_message fallback: the transcript may not include the final message at Stop time.
+  // last_assistant_message fallback: the transcript may not include the final
+  // message at Stop time. Exact-match dedup keeps it from being duplicated.
   const lastAssistant = (options.lastAssistantMessage ?? "").trim();
-  if (lastAssistant && !lines.some((line) => line.startsWith("MAIN:") && line.slice(5).includes(lastAssistant.slice(0, 40)))) {
+  if (lastAssistant && !lines.some((line) => line.startsWith("MAIN: ") && line.slice(6).trim() === lastAssistant)) {
     lines.push(`MAIN: ${lastAssistant}`);
   }
 
@@ -147,6 +155,16 @@ export async function serializeTrajectory(transcriptPath, options = {}) {
   // recently; head truncation would drop exactly the current turn's work.
   if (body.length > maxChars) body = `[earlier trajectory truncated]\n${body.slice(-maxChars)}`;
   return `<main-agent-trajectory>\n${body}\n</main-agent-trajectory>`;
+}
+
+/**
+ * True when the user text is one of this plugin's own slash commands. Only
+ * our commands (e.g. "/shadow now") are exempt from being a window anchor, so
+ * a real instruction that merely starts with a slash ("/tmp 下的日志改一下")
+ * still counts as a user request.
+ */
+function isCommandText(text) {
+  return /^\/shadow(-mind:shadow)?(\s|$)/.test(text.trim());
 }
 
 /** Read a JSONL file line by line, parsing each row; skip broken lines. */
