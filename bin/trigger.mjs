@@ -11,7 +11,7 @@ const WRITE_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 // as touching the file (cat auth.py is read-only, python train.py is not).
 const READONLY_CMDS = new Set([
   "cat", "ls", "head", "tail", "grep", "rg", "find", "type", "dir",
-  "more", "less", "wc", "echo", "Get-Content", "Get-ChildItem", "sed", "less",
+  "more", "less", "wc", "echo", "Get-Content", "Get-ChildItem",
 ]);
 
 function isReadonlyCommand(command) {

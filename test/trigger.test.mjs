@@ -102,3 +102,9 @@ test("executing Bash commands still trigger", async () => {
     assert.equal(hit, true, `expected trigger for: ${cmd}`);
   }
 });
+
+test("sed -i in-place edit triggers", async () => {
+  const rows = [USER_MSG, toolUse("Bash", { command: "sed -i s/x/y/ auth.py" })];
+  const hit = await withTranscript(rows, (p) => touchMatchingExt(p, ["py"]));
+  assert.equal(hit, true);
+});
